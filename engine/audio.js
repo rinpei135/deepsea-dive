@@ -176,11 +176,11 @@ function update(dt, { dive, under, depth, motor }) {
     if (d < 150 && clock > nextBubble) { bubble(now(), 0.03); nextBubble = clock + rand(0.8, 4); }
     // その深さに入ってから数秒で最初の1回が鳴り、以後は一定間隔
     const inWhale = d > 200 && d < 6000, inCreak = d > 6000;
-    if (inWhale && !wasWhale) nextWhale = clock + rand(2, 5);
-    if (inCreak && !wasCreak) nextCreak = clock + rand(1.5, 4);
+    if (inWhale && !wasWhale) nextWhale = clock + rand(5, 12);
+    if (inCreak && !wasCreak) nextCreak = clock + rand(4, 10);
     wasWhale = inWhale; wasCreak = inCreak;
-    if (inWhale && clock > nextWhale) { whale(); nextWhale = clock + rand(14, 28); }
-    if (inCreak && clock > nextCreak) { creak(); nextCreak = clock + rand(6, 14); }
+    if (inWhale && clock > nextWhale) { whale(); nextWhale = clock + rand(40, 80); }
+    if (inCreak && clock > nextCreak) { creak(); nextCreak = clock + rand(20, 40); }
   }
 }
 function set(key, v) {

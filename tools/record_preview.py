@@ -126,14 +126,12 @@ def main():
     fdir = r'C:\Windows\Fonts'
     title_font = ImageFont.truetype(os.path.join(fdir, 'yumindb.ttf'), 96)
     sub_font = ImageFont.truetype(os.path.join(fdir, 'YuGothM.ttc'), 30)
-    url_font = ImageFont.truetype(os.path.join(fdir, 'consola.ttf'), 30)
     card = Image.new('RGB', (W, H), (3, 10, 18))
     d = ImageDraw.Draw(card)
     def center(text, font, y, fill):
         w = d.textlength(text, font=font); d.text(((W - w) / 2, y), text, font=font, fill=fill)
-    center('深海ダイブ', title_font, 250, (217, 238, 242))
-    center('実際の海底地形データで、マリアナ海溝の底へ', sub_font, 380, (140, 200, 214))
-    center('rinpei135.github.io/deepsea-dive', url_font, 440, (142, 230, 242))
+    center('深海ダイブ', title_font, 270, (217, 238, 242))
+    center('実際の海底地形データで、マリアナ海溝の底へ', sub_font, 400, (140, 200, 214))
     for i in range(3 * FPS):
         a = min(1, i / 20)
         Image.blend(last, card, a).save(os.path.join(frames, f'{n:05d}.png')); n += 1

@@ -10,7 +10,7 @@
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../../engine/engine.css?v=b03b657f">
+<link rel="stylesheet" href="../../engine/engine.css?v=775e7e39">
 </head>
 <body>
 
@@ -22,6 +22,7 @@
   <div class="brand" id="brand">深海ダイブ · マリアナ海溝</div>
   <div id="depth">0<small>m</small></div>
   <div id="zone"></div>
+  <button class="btn mini" id="panelToggle" type="button" aria-expanded="false" aria-controls="panel">詳細 ▾</button>
   <dl id="gauges"></dl>
   <div id="life"></div>
   <details id="src">
@@ -50,17 +51,18 @@
   <span class="sep"></span>
   <button class="btn primary" id="go" type="button">潜航開始 ▼</button>
   <button class="btn" id="up" type="button">浮上 ▲</button>
-  <div class="grp" id="speeds"></div>
-  <span class="sep"></span>
-  <button class="btn" id="surf" type="button" aria-pressed="true">海面</button>
-  <button class="btn" id="sonar" type="button" aria-pressed="true">自動ソナー</button>
-  <button class="btn" id="ping" type="button">ピン発信</button>
-  <div class="grp vol">
+  <button class="btn mini" id="moreBtn" type="button" aria-expanded="false" aria-controls="controls">設定 ▴</button>
+  <div class="grp more" id="speeds"></div>
+  <span class="sep more"></span>
+  <button class="btn more" id="surf" type="button" aria-pressed="true">海面</button>
+  <button class="btn more" id="sonar" type="button" aria-pressed="true">自動ソナー</button>
+  <button class="btn more" id="ping" type="button">ピン発信</button>
+  <div class="grp vol more">
     <button class="btn" id="bgm" type="button" aria-pressed="false">BGM</button>
     <button class="btn" id="sound" type="button" aria-pressed="false">効果音</button>
     <input id="vol" type="range" min="0" max="100" step="1" value="30" aria-label="音量">
   </div>
-  <button class="btn" id="exag" type="button">高さ ×4</button>
+  <button class="btn more" id="exag" type="button">高さ ×4</button>
 </section>
 
 <div id="splash"></div>
@@ -117,10 +119,10 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="bathy.js?v=3bbbae62"></script>
 <script src="config.js?v=97d1b3ca"></script>
-<script src="../../engine/world.js?v=799636fd"></script>
+<script src="../../engine/world.js?v=3a25a4b0"></script>
 <script src="../../engine/sea.js?v=2cd4d984"></script>
 <script src="../../engine/audio.js?v=48dd6a76"></script>
-<script src="../../engine/ui.js?v=b92ee4a4"></script>
+<script src="../../engine/ui.js?v=f445ea43"></script>
 <script src="../../engine/treasure.js?v=9a69f6cb"></script>
 <script src="../../engine/nav.js?v=01baa862"></script>
 </body>

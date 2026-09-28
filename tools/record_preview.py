@@ -177,8 +177,10 @@ def main():
     subprocess.run([ff, '-y', '-framerate', str(FPS), '-i', os.path.join(frames, '%05d.png'),
                     '-ss', f'{t0:.4f}', '-i', wav,
                     '-map', '0:v', '-map', '1:a',
-                    # SNS 動画の一般的な大きさ（-16 LUFS）に揃え、最後はゆっくり消す
-                    '-af', f'loudnorm=I=-16:TP=-1.5:LRA=11,afade=t=out:st={dur - 2.8:.2f}:d=2.8', '-ar', '48000',
+                    # X はミュートを外すと大きな音量で鳴るので、瞬間的に大きい音を丸めて（コンプレッサー）
+                    # 全体を -20 LUFS に揃え、最後はゆっくり消す
+                    '-af', f'acompressor=threshold=-24dB:ratio=3:attack=5:release=250:makeup=1,'
+                           f'loudnorm=I=-20:TP=-3:LRA=9,afade=t=out:st={dur - 2.8:.2f}:d=2.8', '-ar', '48000',
                     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-preset', 'slow',
                     '-c:a', 'aac', '-b:a', '192k', '-shortest',
                     '-movflags', '+faststart', os.path.abspath(OUT)], check=True)

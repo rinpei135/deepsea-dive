@@ -31,7 +31,8 @@ function elevAt(lat, lon) {                  // 双一次補間 (m)
 // ---------- three.js ----------
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// スマホなど小さい画面では描画の細かさを少し抑えて、動作を軽くする
+renderer.setPixelRatio(Math.min(devicePixelRatio, Math.min(innerWidth, innerHeight) < 600 ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x06121c);

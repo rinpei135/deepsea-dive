@@ -100,6 +100,16 @@ function syncMode() {
     : 'ドラッグで回転 · ホイールで拡大 · 右ドラッグで移動 · ルーラーをクリックでその深さへ潜航';
   syncGo();
 }
+// スマホ表示の開閉（計器の詳細、設定ボタン群）
+$('panelToggle').onclick = () => {
+  const open = $('panel').classList.toggle('open');
+  $('panelToggle').setAttribute('aria-expanded', open); $('panelToggle').textContent = open ? '閉じる ▴' : '詳細 ▾';
+};
+$('moreBtn').onclick = () => {
+  const open = $('controls').classList.toggle('open');
+  document.body.classList.toggle('more-open', open);
+  $('moreBtn').setAttribute('aria-expanded', open); $('moreBtn').textContent = open ? '閉じる ▾' : '設定 ▴';
+};
 $('mOver').onclick = () => NAV().setMode('over');
 $('mDive').onclick = () => NAV().setMode('dive');
 $('go').onclick = () => {

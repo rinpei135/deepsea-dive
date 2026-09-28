@@ -127,19 +127,46 @@ body { background: var(--abyss); color: var(--ink); font-family: var(--sans); ov
 .vol { align-items: center; }
 #vol { width: 72px; accent-color: var(--sonar); }
 
-@media (max-width: 760px) {
-  #panel { left: 16px; right: 88px; width: auto; padding: 12px 14px; gap: 8px; max-height: 44%; }
-  #depth { font-size: 30px; }
-  #zone p, #life span, #hint { display: none; }
-  #ruler { width: 60px; }
-  #ruler .bandLbl, #ruler .mark span { display: none; }
-  #ruler .mark { left: 4px; right: 26px; }
-  #controls { left: 16px; right: 88px; transform: none; max-width: none; }
-  #toast, #toast.show { transform: translate(-50%, 0); }
-  .sep { display: none; }
-  #mapbox { display: none; }
-  #quest { left: 16px; right: 16px; width: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
-  #echo { top: auto; bottom: calc(210px + env(safe-area-inset-bottom, 0px)); white-space: normal; }
-  #pad { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); grid-template-columns: repeat(3, 44px); }
+/* スマホ・小さい画面用の開閉ボタン（広い画面では出さない） */
+#panelToggle, #moreBtn { display: none; }
+.btn.mini { padding: 6px 10px; font-size: 12px; }
+
+/* スマホ（縦）と、高さの低い画面（スマホ横向き）: 景色が主役になるよう、普段は最小限だけ表示 */
+@media (max-width: 760px), (max-height: 520px) {
+  #hint, #mapbox, .sep { display: none; }
+  /* 計器パネル: 普段は「深さ＋層の名前」の1行。「詳細」で開く */
+  #panel { top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; right: 56px; width: auto; padding: 8px 12px; gap: 8px;
+    grid-template-columns: auto 1fr auto; align-items: center; max-height: 64%; }
+  #panel > * { grid-column: 1 / -1; }
+  #panel #depth { grid-column: 1; font-size: 24px; }
+  #panel #zone { grid-column: 2; min-width: 0; }
+  #panel #panelToggle { grid-column: 3; display: inline-block; }
+  #zone h2 { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #zone h2 small, #zone p { display: none; }
+  #panel:not(.open) > :not(#depth):not(#zone):not(#panelToggle) { display: none; }
+  #panel.open #zone { grid-column: 1 / -1; }
+  #panel.open #zone p { display: block; }
+  #panel.open { max-height: 45%; }
+  /* 深度ルーラー: 細く、ボタンと重ならない高さに */
+  #ruler { top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; width: 34px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  #ruler .bandLbl, #ruler .mark span, #ruler .tick span, #now span { display: none; }
+  #ruler .mark { left: 2px; right: 14px; }
+  #ruler .band { width: 14px; }
+  #ruler .tick { width: 18px; }
+  /* 操作: 普段は1段。「設定」で残りを開く */
+  #controls { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: none; max-width: none; padding: 8px; gap: 6px; }
+  #controls #moreBtn { display: inline-block; }
+  #controls:not(.open) .more { display: none; }
+  #controls .btn { padding: 7px 9px; }
+  /* 移動パッド: 操作ボタンのすぐ上、左下 */
+  #pad { left: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); padding: 6px; gap: 5px; grid-template-columns: repeat(3, 42px); }
+  #pad .btn { padding: 7px 0; }
+  #toast, #toast.show { top: calc(64px + env(safe-area-inset-top, 0px)); transform: translate(-50%, 0); font-size: 12px; }
+  #quest { left: 12px; right: 12px; width: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  #echo { top: auto; bottom: calc(190px + env(safe-area-inset-bottom, 0px)); white-space: normal; }
+}
+/* 設定を開いたときは、パッドを操作ボタンの上に逃がす */
+@media (max-width: 760px), (max-height: 520px) {
+  body.more-open #pad { bottom: calc(200px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { #toast, #splash { transition: none; } }

@@ -25,6 +25,10 @@ VIRTUAL_CLOCK = r"""
   window.requestAnimationFrame = cb => { q.push(cb); return q.length; };
   window.setTimeout = (fn, ms = 0) => { const id = tid++; timers.push({ id, at: now + ms, fn }); return id; };
   window.clearTimeout = id => { timers = timers.filter(t => t.id !== id); };
+  // 音は仮想時計に合わせて OfflineAudioContext に予約し、最後にまとめて書き出す
+  window.__vnow = () => now;
+  window.__AUDIO_CLOCK = () => now / 1000;
+  window.__AUDIO_CTX = () => (window.__offline = new OfflineAudioContext(2, 48000 * 60, 48000));
   window.__step = ms => {
     now += ms;
     const due = timers.filter(t => t.at <= now); timers = timers.filter(t => t.at > now);
@@ -41,6 +45,27 @@ st.textContent = '#controls, #pad, #hint, #quest, #echo, #found, #soundAsk, #lif
 document.head.appendChild(st);
 """
 
+WAV_EXPORT = r"""
+const done = arguments[arguments.length - 1];
+if (!window.__offline) { done('ERR 音の処理が起動していません'); return; }
+window.__offline.startRendering().then(buf => {
+  const ch = [buf.getChannelData(0), buf.getChannelData(1)], len = buf.length, rate = buf.sampleRate;
+  const out = new DataView(new ArrayBuffer(44 + len * 4));
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) out.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); out.setUint32(4, 36 + len * 4, true); str(8, 'WAVEfmt ');
+  out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 2, true);
+  out.setUint32(24, rate, true); out.setUint32(28, rate * 4, true); out.setUint16(32, 4, true); out.setUint16(34, 16, true);
+  str(36, 'data'); out.setUint32(40, len * 4, true);
+  let o = 44;
+  for (let i = 0; i < len; i++) for (let c = 0; c < 2; c++) {
+    const v = Math.max(-1, Math.min(1, ch[c][i])); out.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true); o += 2;
+  }
+  const bytes = new Uint8Array(out.buffer); let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  done(btoa(bin));
+}).catch(e => done('ERR ' + e));
+"""
+
 def main():
     opts = webdriver.ChromeOptions()
     opts.add_argument('--headless=new')
@@ -53,6 +78,8 @@ def main():
     drv.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {'source': VIRTUAL_CLOCK})
     drv.get(URL)
     drv.execute_script(HIDE_UI)
+    drv.set_script_timeout(600)
+    drv.execute_script("document.getElementById('soundYes').click();")   # 音ありで始める
     js = drv.execute_script
     step = lambda: js('window.__step(arguments[0])', 1000 / FPS)
     for _ in range(10): step()                      # 読み込み直後の数コマは捨てる
@@ -60,6 +87,7 @@ def main():
 
     frames = tempfile.mkdtemp(prefix='dive_frames_')
     n = 0
+    t0 = js('return window.__vnow() / 1000')          # 動画の先頭にあたる音の時刻
     def shot():
         nonlocal n
         png = base64.b64decode(drv.execute_cdp_cmd('Page.captureScreenshot', {'format': 'png'})['data'])
@@ -119,6 +147,13 @@ def main():
         js("window.__DIVE.yaw = arguments[0]; window.__DIVE.pitch = arguments[1];",
            y0 + 5.76 * e, 0.08 + 0.14 * math.sin(x * math.pi))
         step(); shot()
+
+    # 音を書き出す（16bit ステレオ WAV を Base64 で受け取る）
+    wav_b64 = drv.execute_async_script(WAV_EXPORT)
+    if wav_b64.startswith('ERR'):
+        raise RuntimeError(wav_b64)
+    wav = os.path.join(frames, 'audio.wav')
+    with open(wav, 'wb') as f: f.write(base64.b64decode(wav_b64))
     drv.quit()
 
     # 5) タイトル（最後のコマから暗転して文字を出す）
@@ -138,8 +173,14 @@ def main():
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     ff = imageio_ffmpeg.get_ffmpeg_exe()
+    dur = n / FPS
     subprocess.run([ff, '-y', '-framerate', str(FPS), '-i', os.path.join(frames, '%05d.png'),
+                    '-ss', f'{t0:.4f}', '-i', wav,
+                    '-map', '0:v', '-map', '1:a',
+                    # SNS 動画の一般的な大きさ（-16 LUFS）に揃え、最後はゆっくり消す
+                    '-af', f'loudnorm=I=-16:TP=-1.5:LRA=11,afade=t=out:st={dur - 2.8:.2f}:d=2.8', '-ar', '48000',
                     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-preset', 'slow',
+                    '-c:a', 'aac', '-b:a', '192k', '-shortest',
                     '-movflags', '+faststart', os.path.abspath(OUT)], check=True)
     shutil.rmtree(frames)
     print('saved', os.path.abspath(OUT), n, 'frames')

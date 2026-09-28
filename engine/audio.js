@@ -103,13 +103,29 @@ function whale() {                                // 遠くのクジラのよう
   vib.frequency.value = 5; vib.connect(vg).connect(o.frequency); vib.start(t0); vib.stop(t0 + 3.6);
   o.connect(filt('lowpass', 900)).connect(g).connect(worldBus); env(g, 0.22, 0.8, 2.8, t0); o.start(t0); o.stop(t0 + 3.8);
 }
-function creak() {                                // 水圧で船体がきしむ音
-  const t0 = now(), o = ac.createOscillator(), g = gain(0), f = rand(70, 120);
-  o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t0); o.frequency.exponentialRampToValueAtTime(f * rand(0.6, 0.8), t0 + 1.1);
-  o.connect(filt('bandpass', rand(250, 600), 1.5)).connect(g).connect(seBus); env(g, 2.0, 0.15, 1.0, t0); o.start(t0); o.stop(t0 + 1.4);
-  for (let i = 0; i < 3; i++) {                  // 「ミシッ」という金属のきしみ
-    const tk = t0 + rand(0, 0.7), n = noise(), tg = gain(0);
-    n.connect(filt('bandpass', rand(1800, 3200), 6)).connect(tg).connect(seBus); env(tg, 0.9, 0.003, 0.09, tk); n.stop(tk + 0.15);
+function creak() {                                // 水圧で船体がきしむ音（ギギギ…と擦れる）
+  const t0 = now(), dur = rand(1.1, 1.7), f = rand(200, 320);
+  // 引っかかっては滑る「断続」: 1秒間に 20〜40 回、速さが揺らぐ
+  const stick = ac.createOscillator(); stick.type = 'square';
+  const rates = new Float32Array(8).map((_, i) => rand(18, 40) * (1 - 0.3 * i / 7));
+  stick.frequency.setValueCurveAtTime(rates, t0, dur);
+  const gate = gain(0.5); stick.connect(gain(0.5)).connect(gate.gain);
+  // 金属の響き（中くらいの高さ）
+  const o = ac.createOscillator(); o.type = 'sawtooth';
+  o.frequency.setValueAtTime(f, t0); o.frequency.linearRampToValueAtTime(f * rand(0.8, 1.15), t0 + dur);
+  const body = filt('bandpass', rand(450, 800), 4);
+  o.connect(body).connect(gate);
+  // ザラッとした摩擦
+  const n = noise(); n.connect(filt('bandpass', rand(1200, 2000), 2)).connect(gain(0.6)).connect(gate);
+  const g = gain(0); gate.connect(filt('highpass', 220)).connect(g).connect(seBus);
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.5, t0 + 0.12);
+  g.gain.setValueAtTime(0.5, t0 + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  [stick, o].forEach(x => { x.start(t0); x.stop(t0 + dur + 0.05); }); n.stop(t0 + dur + 0.05);
+  // 余韻の「ピシッ」
+  const ticks = 2 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < ticks; i++) {
+    const tk = t0 + dur + rand(0.1, 1.2), tn = noise(), tg = gain(0);
+    tn.connect(filt('bandpass', rand(2200, 3600), 8)).connect(tg).connect(seBus); env(tg, 0.6, 0.002, 0.06, tk); tn.stop(tk + 0.12);
   }
 }
 function found() {                                // 宝箱を見つけたとき

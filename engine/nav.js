@@ -21,7 +21,7 @@ const saved = { pos: new THREE.Vector3(), tgt: new THREE.Vector3() };
 
 // ---------- モード切り替えと入水演出 ----------
 const INTRO = { fly: 4.5, sink: 13, top: MIN_D, end: 12 };
-let entered = false, firstPingAt = -1;
+let entered = false, firstPingAt = -1, wasUnder = false, lastCross = -9;
 function setMode(m, then = null) {
   if (m === S.mode) return UI.syncGo();
   if (m === 'dive') {
@@ -158,10 +158,19 @@ function frame(now) {
   // 水面の上か下か（波の高さも考える）
   const surfY = SEA.waveHeight(camera.position.x * 1000, camera.position.z * 1000, t) / 1000;
   const under = dive && camera.position.y < surfY;
-  if (under && !entered && dive) {
-    entered = true; UI.splash(); UI.toast('海中に入りました'); window.__AUDIO?.splash();
-    SEA.splashBubbles(camera.position); firstPingAt = t + 1.5;
+  // 海面を越えるたびに入水・浮上の演出（波で行き来しても連発しないよう 1 秒あける）
+  if (dive && under !== wasUnder && t - lastCross > 1) {
+    lastCross = t;
+    if (under) {
+      UI.splash(); UI.toast('海中に入りました'); window.__AUDIO?.splash();
+      SEA.splashBubbles(camera.position);
+      if (!entered) firstPingAt = t + 1.5;
+      entered = true;
+    } else {
+      window.__AUDIO?.surface();
+    }
   }
+  if (t - lastCross > 1 || !dive) wasUnder = under;
   if (dive && d !== prev && entered) {
     O.marks.forEach(m => { if ((prev < m.d) !== (d < m.d)) UI.toast(`${m.label} の深さを通過`); });
     O.zones.slice(1).forEach(z => { if (prev < z.from && d >= z.from) UI.toast(`${z.name}（${nf(z.from)}m〜）に入りました`); });

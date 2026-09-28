@@ -9,7 +9,7 @@ const NAV = () => window.__NAV;
 
 const S = window.__DIVE = {
   mode: null, x: 0, z: 0, depth: 0, dir: 0, goal: null, speed: 100, yaw: 0, pitch: -0.2,
-  sonar: true, sound: false, bgm: false, vol: 0.5, surfaceOn: true, intro: null, keys: {}
+  sonar: true, sound: false, bgm: false, vol: 0.3, surfaceOn: true, intro: null, keys: {}
 };
 // 音量は閲覧者ごとにこのブラウザへ記憶
 try { const v = localStorage.getItem('deepsea-vol'); if (v !== null) { S.vol = +v; $('vol').value = Math.round(S.vol * 100); } } catch (_) {}

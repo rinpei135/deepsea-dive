@@ -1,19 +1,21 @@
 // 音: BGM（自動生成の環境音楽）・環境音・効果音。すべて Web Audio で合成し、音声ファイルは使わない
 (() => {
 let ac = null, master, bgmBus, worldBus, seBus, muffle, reverb;
-const st = { bgm: true, se: true, vol: 0.5, depth: 0, under: false, dive: false, zone: -1 };
-const now = () => ac.currentTime;
+const BGM_LEVEL = 0.6;           // BGM の大きさ（効果音とのバランス）
+const st = { bgm: true, se: true, vol: 0.3, depth: 0, under: false, dive: false, zone: -1 };
+// 録画スクリプトは __AUDIO_CLOCK（仮想時計の秒）と __AUDIO_CTX（書き出し用の OfflineAudioContext）を差し込める
+const now = () => window.__AUDIO_CLOCK ? window.__AUDIO_CLOCK() : ac.currentTime;
 const rand = (a, b) => a + Math.random() * (b - a);
 const midi = n => 440 * Math.pow(2, (n - 69) / 12);
 
 // ---------- 起動（ユーザー操作の中で呼ぶ） ----------
 function start() {
   if (ac) { ac.resume(); return true; }
-  try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return false; }
+  try { ac = window.__AUDIO_CTX ? window.__AUDIO_CTX() : new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return false; }
   master = ac.createGain(); master.gain.value = st.vol; master.connect(ac.destination);
   reverb = ac.createConvolver(); reverb.buffer = impulse(4.5); const rvGain = ac.createGain(); rvGain.gain.value = 0.55;
   reverb.connect(rvGain).connect(master);
-  bgmBus = ac.createGain(); bgmBus.gain.value = st.bgm ? 0.5 : 0; bgmBus.connect(master); bgmBus.connect(reverb);
+  bgmBus = ac.createGain(); bgmBus.gain.value = st.bgm ? BGM_LEVEL : 0; bgmBus.connect(master); bgmBus.connect(reverb);
   // 海中では高い音がこもる（ローパス）
   muffle = ac.createBiquadFilter(); muffle.type = 'lowpass'; muffle.frequency.value = 18000; muffle.Q.value = 0.4;
   worldBus = ac.createGain(); worldBus.gain.value = st.se ? 1 : 0;
@@ -75,6 +77,11 @@ function splash() {
   const g = gain(0), n = noise(); n.connect(filt('highpass', 700)).connect(g).connect(seBus); env(g, 0.5, 0.01, 1.2); n.stop(now() + 1.4);
   for (let i = 0; i < 26; i++) bubble(now() + 0.2 + Math.pow(Math.random(), 1.5) * 2.2, rand(0.03, 0.12));
 }
+function surface() {                            // 浮上したときの小さな水音
+  if (!ac || !st.se) return;
+  const g = gain(0), n = noise(); n.connect(filt('bandpass', 1400, 0.8)).connect(g).connect(seBus); env(g, 0.18, 0.02, 0.6); n.stop(now() + 0.8);
+  for (let i = 0; i < 6; i++) bubble(now() + rand(0, 0.5), 0.05);
+}
 function bubble(t0 = now(), vol = 0.08) {
   if (!ac) return;
   const o = ac.createOscillator(), g = gain(0), f = rand(380, 1400);
@@ -94,12 +101,16 @@ function whale() {                                // 遠くのクジラのよう
   const f = rand(140, 220);
   o.type = 'sine'; o.frequency.setValueAtTime(f, t0); o.frequency.linearRampToValueAtTime(f * 0.7, t0 + 1.6); o.frequency.linearRampToValueAtTime(f * 1.15, t0 + 3.2);
   vib.frequency.value = 5; vib.connect(vg).connect(o.frequency); vib.start(t0); vib.stop(t0 + 3.6);
-  o.connect(filt('lowpass', 600)).connect(g).connect(worldBus); env(g, 0.05, 0.8, 2.8, t0); o.start(t0); o.stop(t0 + 3.8);
+  o.connect(filt('lowpass', 900)).connect(g).connect(worldBus); env(g, 0.22, 0.8, 2.8, t0); o.start(t0); o.stop(t0 + 3.8);
 }
 function creak() {                                // 水圧で船体がきしむ音
   const t0 = now(), o = ac.createOscillator(), g = gain(0), f = rand(70, 120);
   o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t0); o.frequency.exponentialRampToValueAtTime(f * rand(0.6, 0.8), t0 + 1.1);
-  o.connect(filt('bandpass', rand(300, 700), 8)).connect(g).connect(seBus); env(g, 0.09, 0.15, 1.0, t0); o.start(t0); o.stop(t0 + 1.4);
+  o.connect(filt('bandpass', rand(250, 600), 1.5)).connect(g).connect(seBus); env(g, 2.0, 0.15, 1.0, t0); o.start(t0); o.stop(t0 + 1.4);
+  for (let i = 0; i < 3; i++) {                  // 「ミシッ」という金属のきしみ
+    const tk = t0 + rand(0, 0.7), n = noise(), tg = gain(0);
+    n.connect(filt('bandpass', rand(1800, 3200), 6)).connect(tg).connect(seBus); env(tg, 0.9, 0.003, 0.09, tk); n.stop(tk + 0.15);
+  }
 }
 function found() {                                // 宝箱を見つけたとき
   if (!ac || !st.se) return;
@@ -144,7 +155,7 @@ function melody() {
 setTimeout(melody, 1500);
 
 // ---------- 毎フレーム ----------
-let nextWhale = 20, nextCreak = 10, nextBubble = 2, clock = 0, sinceSet = 0;
+let nextWhale = 20, nextCreak = 10, nextBubble = 2, clock = 0, sinceSet = 0, wasWhale = false, wasCreak = false;
 function update(dt, { dive, under, depth, motor }) {
   if (!ac) return;
   clock += dt;
@@ -157,23 +168,28 @@ function update(dt, { dive, under, depth, motor }) {
   ramp(amb.wind.gain, above ? (dive ? 0.35 : 0.12) : 0, 1);
   ramp(amb.wave.gain, above ? (dive ? 0.6 : 0.15) : 0, 1);
   ramp(amb.hiss.gain, under ? 0.25 * Math.exp(-d / 400) : 0, 1);
-  ramp(amb.drone.gain, under ? 0.35 * Math.min(1, d / 3000) : 0, 2);
+  ramp(amb.drone.gain, under ? 0.06 * Math.min(1, d / 3000) : 0, 2);
   ramp(amb.motor.gain, under ? Math.min(0.12, motor / 400 * 0.12) : 0, 0.5);
   ramp(amb.motorOsc.frequency, 38 + Math.min(40, motor / 30), 0.5);
   ramp(amb.motorF.frequency, 140 + Math.min(500, motor / 3), 0.5);
   if (under && st.se) {
     if (d < 150 && clock > nextBubble) { bubble(now(), 0.03); nextBubble = clock + rand(0.8, 4); }
-    if (d > 300 && d < 5000 && clock > nextWhale) { whale(); nextWhale = clock + rand(25, 50); }
-    if (d > 6000 && clock > nextCreak) { creak(); nextCreak = clock + rand(8, 20); }
+    // その深さに入ってから数秒で最初の1回が鳴り、以後は一定間隔
+    const inWhale = d > 200 && d < 6000, inCreak = d > 6000;
+    if (inWhale && !wasWhale) nextWhale = clock + rand(2, 5);
+    if (inCreak && !wasCreak) nextCreak = clock + rand(1.5, 4);
+    wasWhale = inWhale; wasCreak = inCreak;
+    if (inWhale && clock > nextWhale) { whale(); nextWhale = clock + rand(14, 28); }
+    if (inCreak && clock > nextCreak) { creak(); nextCreak = clock + rand(6, 14); }
   }
 }
 function set(key, v) {
   st[key] = v;
   if (!ac) return;
-  if (key === 'bgm') ramp(bgmBus.gain, v ? 0.5 : 0, 0.8);
+  if (key === 'bgm') ramp(bgmBus.gain, v ? BGM_LEVEL : 0, 0.8);
   if (key === 'se') { ramp(worldBus.gain, v ? 1 : 0, 0.3); ramp(seBus.gain, v ? 0.8 : 0, 0.3); }
   if (key === 'vol') ramp(master.gain, v, 0.1);
 }
 
-window.__AUDIO = { start, update, set, ping, splash, found, get on() { return !!ac; } };
+window.__AUDIO = { start, update, set, ping, splash, surface, found, get on() { return !!ac; } };
 })();

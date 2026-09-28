@@ -32,6 +32,7 @@ engine/               すべての海で共通の仕組み
   engine.css          共通スタイル
 tools/
   record_preview.py   プレビュー動画の録画スクリプト
+  update_versions.py  JS・CSS の読み込みに版番号を付ける
 seas/<海のID>/
   index.html          その海のページ（出典の記載を含む）
   bathy.js            海底地形データ（下記の形式）
@@ -48,6 +49,16 @@ seas/<海のID>/
 4. `index.html` のタイトルと出典欄を書き換え、トップページの一覧にカードを追加する。
 
 地形データは NOAA CoastWatch ERDDAP から CSV で取得できます（例: データセット `ETOPO_2022_v1_15s`）。
+
+## 更新するときの手順
+
+ページが読み込む JS・CSS には、ファイルの中身から計算した版番号（`?v=xxxxxxxx`）を付けています。変更したファイルだけ番号が変わるので、訪問者のブラウザに古いファイルが残りません。**更新をプッシュする前に必ず実行してください。**
+
+```
+python tools/update_versions.py
+```
+
+HTML 自体は GitHub Pages の設定で最大10分ほどブラウザに保存されるため、反映に少し時間がかかることがあります。
 
 ## プレビュー動画の作り方
 

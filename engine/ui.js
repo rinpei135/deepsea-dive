@@ -9,12 +9,24 @@ const NAV = () => window.__NAV;
 
 const S = window.__DIVE = {
   mode: null, x: 0, z: 0, depth: 0, dir: 0, goal: null, speed: 100, yaw: 0, pitch: -0.2,
-  sonar: true, sound: false, vol: 0.3, surfaceOn: true, intro: null, keys: {}
+  sonar: true, sound: false, bgm: false, vol: 0.5, surfaceOn: true, intro: null, keys: {}
 };
 // 音量は閲覧者ごとにこのブラウザへ記憶
 try { const v = localStorage.getItem('deepsea-vol'); if (v !== null) { S.vol = +v; $('vol').value = Math.round(S.vol * 100); } } catch (_) {}
-$('vol').addEventListener('input', e => { S.vol = e.target.value / 100; try { localStorage.setItem('deepsea-vol', S.vol); } catch (_) {} });
+$('vol').addEventListener('input', e => { S.vol = e.target.value / 100; AUD()?.set('vol', S.vol); try { localStorage.setItem('deepsea-vol', S.vol); } catch (_) {} });
 $('vol').addEventListener('change', () => { if (S.sound) pingSound(); });
+const AUD = () => window.__AUDIO;
+// 最初に音を再生するか確認する（ブラウザの決まりで、音はユーザー操作のあとでないと鳴らせない）
+function setSound(bgm, se) {
+  S.bgm = bgm; S.sound = se;
+  $('bgm').setAttribute('aria-pressed', bgm); $('sound').setAttribute('aria-pressed', se);
+  const a = AUD(); if (!a) return;
+  if ((bgm || se) && !a.on) a.start();
+  a.set('vol', S.vol); a.set('bgm', bgm); a.set('se', se);
+}
+$('soundYes').onclick = () => { $('soundAsk').hidden = true; setSound(true, true); };
+$('soundNo').onclick = () => { $('soundAsk').hidden = true; setSound(false, false); };
+$('bgm').onclick = () => setSound(!S.bgm, S.sound);
 
 // ---------- ラベル ----------
 const pins = [];
@@ -103,7 +115,7 @@ $('up').onclick = () => {
 const toggleBtn = (id, key) => $(id).onclick = e => { S[key] = !S[key]; e.currentTarget.setAttribute('aria-pressed', S[key]); };
 toggleBtn('surf', 'surfaceOn');
 toggleBtn('sonar', 'sonar');
-$('sound').onclick = e => { S.sound = !S.sound; e.currentTarget.setAttribute('aria-pressed', S.sound); if (S.sound) pingSound(); };
+$('sound').onclick = () => { setSound(S.bgm, !S.sound); if (S.sound) pingSound(); };
 $('ping').onclick = () => NAV().ping(true);
 const EXS = [1, 2, 4, 8];
 $('exag').onclick = e => {
@@ -121,22 +133,8 @@ document.querySelectorAll('#pad [data-k]').forEach(b => {
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => b.addEventListener(ev, off));
 });
 
-// ---------- 効果音（ソナーのピン） ----------
-let ac = null;
-function pingSound() {
-  try {
-    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-    const now = ac.currentTime;
-    if (S.vol <= 0) return;
-    [[0, 0.22], [0.9, 0.06], [1.7, 0.025]].map(([dt, g]) => [dt, g * S.vol]).forEach(([dt, g]) => {   // 本音と反響
-      const o = ac.createOscillator(), v = ac.createGain();
-      o.type = 'sine'; o.frequency.setValueAtTime(1180, now + dt); o.frequency.exponentialRampToValueAtTime(1040, now + dt + 1.2);
-      v.gain.setValueAtTime(0, now + dt); v.gain.linearRampToValueAtTime(g, now + dt + 0.01);
-      v.gain.exponentialRampToValueAtTime(0.0001, now + dt + 1.4);
-      o.connect(v); v.connect(ac.destination); o.start(now + dt); o.stop(now + dt + 1.5);
-    });
-  } catch (e) { /* 音が使えない環境では無音 */ }
-}
+// ---------- 効果音（ソナーのピン）: 実際の音は audio.js で鳴らす ----------
+function pingSound() { AUD()?.ping(); }
 
 // ---------- トースト・入水効果 ----------
 let toastTimer, splashTimer;

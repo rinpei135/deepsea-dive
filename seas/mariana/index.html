@@ -56,13 +56,23 @@
   <button class="btn" id="sonar" type="button" aria-pressed="true">自動ソナー</button>
   <button class="btn" id="ping" type="button">ピン発信</button>
   <div class="grp vol">
-    <button class="btn" id="sound" type="button" aria-pressed="false">音</button>
-    <input id="vol" type="range" min="0" max="100" step="1" value="30" aria-label="ピン音の音量">
+    <button class="btn" id="bgm" type="button" aria-pressed="false">BGM</button>
+    <button class="btn" id="sound" type="button" aria-pressed="false">効果音</button>
+    <input id="vol" type="range" min="0" max="100" step="1" value="50" aria-label="音量">
   </div>
   <button class="btn" id="exag" type="button">高さ ×4</button>
 </section>
 
 <div id="splash"></div>
+
+<section id="soundAsk" class="hud" role="dialog" aria-labelledby="soundAskTitle">
+  <h3 id="soundAskTitle">音を再生しますか？</h3>
+  <p>BGMと、波・泡・ソナーなどの効果音が流れます。あとから画面下の「BGM」「効果音」ボタンで切り替えられます。</p>
+  <div class="row">
+    <button class="btn primary" id="soundYes" type="button">音ありで始める</button>
+    <button class="btn" id="soundNo" type="button">音なしで始める</button>
+  </div>
+</section>
 
 <section id="quest" class="hud" hidden aria-label="宝探し">
   <header><h3>宝探し</h3><button class="btn" id="questClose" type="button" aria-label="閉じる">×</button></header>
@@ -109,6 +119,7 @@
 <script src="config.js"></script>
 <script src="../../engine/world.js"></script>
 <script src="../../engine/sea.js"></script>
+<script src="../../engine/audio.js"></script>
 <script src="../../engine/ui.js"></script>
 <script src="../../engine/treasure.js"></script>
 <script src="../../engine/nav.js"></script>

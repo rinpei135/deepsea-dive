@@ -147,7 +147,7 @@ function update(dt, t, { dive, under, pings }) {
       save(KEY, rec); openT = 0; renderQuest(); showFound();
       S.dir = 0; S.goal = null; UI.syncGo();
       S.yaw = Math.atan2(-(X - S.x), -(Z - S.z)); S.pitch = -0.9;   // 宝箱の方を向く
-      UI.toast('宝箱を発見しました！');
+      UI.toast('宝箱を発見しました！'); window.__AUDIO?.found();
     }
     // 金属反応: 音が宝箱まで行って戻ってきた時刻に、方位と距離を表示
     const c = 1.5;

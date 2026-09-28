@@ -36,7 +36,7 @@ VIRTUAL_CLOCK = r"""
 
 HIDE_UI = """
 const st = document.createElement('style');
-st.textContent = '#controls, #pad, #hint, #quest, #echo, #found, #life, #zone p, #src, .back { display: none !important; }'
+st.textContent = '#controls, #pad, #hint, #quest, #echo, #found, #soundAsk, #life, #zone p, #src, .back { display: none !important; }'
   + ' #toast { transition: none !important; }';
 document.head.appendChild(st);
 """

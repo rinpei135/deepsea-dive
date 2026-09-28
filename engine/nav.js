@@ -159,7 +159,7 @@ function frame(now) {
   const surfY = SEA.waveHeight(camera.position.x * 1000, camera.position.z * 1000, t) / 1000;
   const under = dive && camera.position.y < surfY;
   if (under && !entered && dive) {
-    entered = true; UI.splash(); UI.toast('海中に入りました');
+    entered = true; UI.splash(); UI.toast('海中に入りました'); window.__AUDIO?.splash();
     SEA.splashBubbles(camera.position); firstPingAt = t + 1.5;
   }
   if (dive && d !== prev && entered) {
@@ -185,6 +185,8 @@ function frame(now) {
   pings.forEach((p, i) => u.uPing.value[i].set(p.x, p.y, p.z, p.w));
 
   if (window.__TREASURE) window.__TREASURE.update(dt, t, { dive, under, pings });
+  // 音: 深さ・水中かどうか・潜水艇の速さ（m/秒）を渡す
+  window.__AUDIO?.update(dt, { dive, under, depth: d, motor: dive && !S.intro ? Math.max(vel.length(), S.dir ? S.speed : 0) : 0 });
 
   // 地形と水中の見え方
   u.uDive.value = under ? 1 : 0;

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>マリアナ海溝｜深海ダイブ</title>
+<meta name="description" content="実際の海底地形データ（NOAA ETOPO 2022）で、マリアナ海溝のチャレンジャー海淵まで3Dで潜航し、ソナーで海溝を探査できます。">
+<meta property="og:title" content="マリアナ海溝｜深海ダイブ">
+<meta property="og:description" content="実際の海底地形データで、世界一深い海溝の底まで3Dで潜航しよう。">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../engine/engine.css">
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+<div id="labels"></div>
+
+<section id="panel" class="hud">
+  <a class="back" href="../../">← 潜る海を選ぶ</a>
+  <div class="brand" id="brand">深海ダイブ · マリアナ海溝</div>
+  <div id="depth">0<small>m</small></div>
+  <div id="zone"></div>
+  <dl id="gauges"></dl>
+  <div id="life"></div>
+  <details id="src">
+    <summary>データ出典</summary>
+    <ul>
+      <li><b>海底地形</b>NOAA National Centers for Environmental Information (2022): ETOPO 2022 15 Arc-Second Global Relief Model.
+        <a href="https://doi.org/10.25921/fd45-gt74" target="_blank" rel="noopener">doi:10.25921/fd45-gt74</a>。
+        NOAA CoastWatch ERDDAP（データセット ETOPO_2022_v1_15s）から北緯10–14°・東経140.5–145.5°を1点おき（30秒角 ≈ 0.9km間隔）に取得。
+        <a href="https://coastwatch.pfeg.noaa.gov/erddap/griddap/ETOPO_2022_v1_15s.html" target="_blank" rel="noopener">ERDDAP</a>（2026-09-28 取得）。
+        利用条件：CC0 1.0（パブリックドメイン。NOAA が米国外を含め権利を放棄）。航行用には使用できません。</li>
+      <li><b>海淵の深さについて</b>ETOPO 2022 は全球モデルのため、幅の狭い海淵の最深部はならされて浅めに出ます。このデータではチャレンジャー海淵が約10,580m、シレナ海淵付近が約10,790mです。チャレンジャー海淵の実測の最新値は約10,935m（Greenaway ほか 2021, Deep-Sea Research Part I）。</li>
+      <li><b>ソナーの速さ</b>海水中の音速（約1,500m/秒。水温・塩分・水圧により約1,450〜1,550m/秒で変わる）。</li>
+      <li><b>水温・太陽光・生き物</b>熱帯西太平洋の一般的な値と、海洋生物学の一般的な知見をまとめた概算です。この地点で測った値ではありません。</li>
+      <li><b>海面・空</b>波（貿易風帯の波高を想定したゲルストナー波）、雲、光の筋は表現用に作ったもので、観測データではありません。</li>
+    </ul>
+  </details>
+</section>
+
+<aside id="ruler" class="hud" aria-label="深度ルーラー（クリックでその深さへ）"></aside>
+
+<section id="controls" class="hud" aria-label="操作">
+  <div class="grp">
+    <button class="btn" id="mOver" type="button" aria-pressed="true">俯瞰</button>
+    <button class="btn" id="mDive" type="button" aria-pressed="false">潜航</button>
+  </div>
+  <span class="sep"></span>
+  <button class="btn primary" id="go" type="button">潜航開始 ▼</button>
+  <button class="btn" id="up" type="button">浮上 ▲</button>
+  <div class="grp" id="speeds"></div>
+  <span class="sep"></span>
+  <button class="btn" id="surf" type="button" aria-pressed="true">海面</button>
+  <button class="btn" id="sonar" type="button" aria-pressed="true">自動ソナー</button>
+  <button class="btn" id="ping" type="button">ピン発信</button>
+  <div class="grp vol">
+    <button class="btn" id="sound" type="button" aria-pressed="false">音</button>
+    <input id="vol" type="range" min="0" max="100" step="1" value="30" aria-label="ピン音の音量">
+  </div>
+  <button class="btn" id="exag" type="button">高さ ×4</button>
+</section>
+
+<div id="splash"></div>
+
+<section id="quest" class="hud" hidden aria-label="宝探し">
+  <header><h3>宝探し</h3><button class="btn" id="questClose" type="button" aria-label="閉じる">×</button></header>
+  <p id="questLead">隠し機能を見つけましたね。マリアナ海溝のどこかの海底に、宝箱がひとつ沈んでいます。潜航してソナーの<b>金属反応</b>を頼りに探し、宝箱の真上まで近づくと発見です。宝箱の場所は毎日（日本時間0時に）変わり、同じ日に遊ぶ人はみんな同じ場所を探します。</p>
+  <div id="questStatus"></div>
+  <div class="hints">
+    <div class="sub">ヒント</div>
+    <ol id="hintList"></ol>
+    <button class="btn" id="hintBtn" type="button">ヒントを見る</button>
+  </div>
+</section>
+
+<div id="echo" class="hud" hidden role="status"></div>
+
+<section id="found" class="hud" hidden role="dialog" aria-labelledby="foundTitle">
+  <h3 id="foundTitle">宝箱を発見しました</h3>
+  <p id="foundText"></p>
+  <textarea id="foundShare" readonly rows="3"></textarea>
+  <div class="row">
+    <button class="btn primary" id="copyBtn" type="button">結果をコピー</button>
+    <button class="btn" id="foundClose" type="button">閉じる</button>
+  </div>
+</section>
+
+<section id="mapbox" class="hud" hidden>
+  <canvas id="map" width="601" height="481" aria-label="ミニマップ（クリックでその地点へ移動）"></canvas>
+  <div class="maplbl">ミニマップ · クリックで移動</div>
+</section>
+
+<section id="pad" class="hud" aria-label="移動" hidden>
+  <button class="btn" type="button" data-k="KeyE" title="上昇 (E / Space)">上昇</button>
+  <button class="btn" type="button" data-k="KeyW" title="前進 (W / ↑)">▲</button>
+  <button class="btn" type="button" data-k="KeyQ" title="下降 (Q / C)">下降</button>
+  <button class="btn" type="button" data-k="KeyA" title="左へ (A)">◀</button>
+  <button class="btn" type="button" data-k="KeyS" title="後退 (S / ↓)">▼</button>
+  <button class="btn" type="button" data-k="KeyD" title="右へ (D)">▶</button>
+</section>
+<div id="toast" role="status"></div>
+<div id="hint">ドラッグで見回す · ホイールや↑↓キーで深さを変える · ルーラーをクリックでその深さへ</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="bathy.js"></script>
+<script src="config.js"></script>
+<script src="../../engine/world.js"></script>
+<script src="../../engine/sea.js"></script>
+<script src="../../engine/ui.js"></script>
+<script src="../../engine/treasure.js"></script>
+<script src="../../engine/nav.js"></script>
+</body>
+</html>

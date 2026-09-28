@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>深海ダイブ</title>
+<meta name="description" content="実際の海底地形データで、世界の深い海を3Dで潜航・探査できるサイト。">
+<meta property="og:title" content="深海ダイブ">
+<meta property="og:description" content="実際の海底地形データで、世界の深い海を3Dで潜航しよう。">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  color-scheme: dark;
+  --abyss: #030a12;
+  --deep: #061a2a;
+  --line: rgba(140, 210, 230, 0.16);
+  --ink: #d9eef2;
+  --muted: #7896a1;
+  --sonar: #8ee6f2;
+  --serif: "Shippori Mincho B1", "Yu Mincho", "Hiragino Mincho ProN", serif;
+  --sans: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Consolas", monospace;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; min-height: 100vh; color: var(--ink); font-family: var(--sans); font-size: 15px;
+  background: linear-gradient(180deg, #0d4b66 0%, #062a40 14%, var(--deep) 34%, var(--abyss) 70%) fixed;
+}
+main { max-width: 880px; margin: 0 auto; padding: calc(56px + env(safe-area-inset-top, 0px)) 16px calc(48px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 40px; }
+header { display: grid; gap: 12px; }
+.eyebrow { font-size: 12px; letter-spacing: .24em; color: var(--sonar); }
+h1 { margin: 0; font-family: var(--serif); font-weight: 800; font-size: clamp(40px, 9vw, 72px); letter-spacing: .12em; line-height: 1.1; text-wrap: balance; }
+.lead { margin: 0; max-width: 34em; line-height: 1.9; color: #b3cad1; }
+.seas { display: grid; gap: 16px; }
+.seas h2 { margin: 0; font-size: 12px; letter-spacing: .2em; color: var(--muted); font-weight: 500; }
+.sea { display: grid; grid-template-columns: 1fr auto; gap: 16px 24px; align-items: end; padding: 22px 24px; border: 1px solid var(--line);
+  border-radius: 12px; background: rgba(4, 16, 26, .6); color: inherit; text-decoration: none; transition: border-color .2s, background .2s; }
+.sea:hover, .sea:focus-visible { border-color: var(--sonar); background: rgba(8, 30, 44, .7); outline: none; }
+.sea h3 { margin: 0 0 6px; font-family: var(--serif); font-size: 28px; letter-spacing: .08em; }
+.sea p { margin: 0; font-size: 13.5px; line-height: 1.8; color: #a9c1c8; }
+.depth { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+.depth b { display: block; font-size: 30px; font-weight: 500; letter-spacing: -.02em; }
+.depth span { font-size: 11px; color: var(--muted); }
+.go { grid-column: 1 / -1; font-size: 13px; color: var(--sonar); letter-spacing: .08em; }
+.soon { padding: 18px 24px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); font-size: 13px; }
+footer { font-size: 12px; line-height: 1.8; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+footer a { color: var(--sonar); }
+@media (max-width: 520px) {
+  .sea { grid-template-columns: 1fr; }
+  .depth { text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) { .sea { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">DEEP SEA DIVE</div>
+    <h1>深海ダイブ</h1>
+    <p class="lead">実際の海底地形データをもとに、世界の深い海を3Dで潜航できます。海面から少しずつ沈み、光の届かない深さでは、ソナーの音で海底の形を探りながら進みます。</p>
+  </header>
+
+  <section class="seas" aria-labelledby="seasTitle">
+    <h2 id="seasTitle">潜れる海</h2>
+    <a class="sea" href="seas/mariana/">
+      <div>
+        <h3>マリアナ海溝</h3>
+        <p>西太平洋、グアム島の南西に弧を描く世界一深い海溝。最深部チャレンジャー海淵の底まで潜航できます。</p>
+      </div>
+      <div class="depth"><b>10,935 m</b><span>チャレンジャー海淵（実測）</span></div>
+      <div class="go">潜航する →</div>
+    </a>
+    <div class="soon">ほかの海も順次追加予定です。</div>
+  </section>
+
+  <footer>
+    海底地形：NOAA National Centers for Environmental Information「ETOPO 2022」（CC0 1.0）。航行用には使用できません。<br>
+    ソースコード：GNU General Public License v3.0。
+  </footer>
+</main>
+</body>
+</html>

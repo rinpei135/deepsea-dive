@@ -28,6 +28,8 @@ engine/               すべての海で共通の仕組み
   treasure.js         隠し要素
   nav.js              移動・入水演出・ソナー発信・描画ループ
   engine.css          共通スタイル
+tools/
+  record_preview.py   プレビュー動画の録画スクリプト
 seas/<海のID>/
   index.html          その海のページ（出典の記載を含む）
   bathy.js            海底地形データ（下記の形式）
@@ -44,6 +46,18 @@ seas/<海のID>/
 4. `index.html` のタイトルと出典欄を書き換え、トップページの一覧にカードを追加する。
 
 地形データは NOAA CoastWatch ERDDAP から CSV で取得できます（例: データセット `ETOPO_2022_v1_15s`）。
+
+## プレビュー動画の作り方
+
+`tools/record_preview.py` で、SNS用のプレビュー動画（1280×720・30fps の MP4）を作れます。ページの時計を1コマずつ進めて撮影するので、PCの速さに関係なくなめらかな動画になります。
+
+```
+pip install selenium pillow imageio-ffmpeg
+python -m http.server 8740          # リポジトリのルートで起動しておく
+python tools/record_preview.py      # promo/preview.mp4 に出力（promo/ は Git 管理外）
+```
+
+Google Chrome が必要です。
 
 ## データ出典と利用条件
 

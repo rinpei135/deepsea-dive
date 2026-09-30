@@ -19,10 +19,14 @@ window.SEA = {
   ],
   // 隠し要素の宝箱を置く海底の最小水深 (m)
   treasureMinDepth: 2000,
-  // 3D で泳ぐ生き物（engine/creatures.js）。kind は形と動きの種類、count はプレイヤーの周りに出す数
+  // 3D で泳ぐ生き物（engine/creatures.js）。kind は形と動きの種類、count はプレイヤーの周りに出す数。
+  // status: 'preview' の生き物は公開前で、通常は表示しない（プレビュー表示を有効にしたブラウザでだけ出る）。
+  // nearFloor: true の生き物は、プレイヤーが海底近くにいるときだけ、海底の少し上に出る。
   creatures: [
-    { kind: 'dumbo', name: 'ジュウモンジダコ', from: 1000, to: 7000, count: 3, size: 0.35,
-      note: '耳のようなひれで泳ぐ、ダンボ・オクトパスとも呼ばれるタコの仲間。最も深い場所に住むタコのひとつ。' }
+    { kind: 'dumbo', name: 'ジュウモンジダコ', from: 1000, to: 7000, count: 3, size: 0.35, status: 'preview',
+      note: '耳のようなひれで泳ぐ、ダンボ・オクトパスとも呼ばれるタコの仲間。最も深い場所に住むタコのひとつ。' },
+    { kind: 'snailfish', name: 'マリアナスネイルフィッシュ', from: 6900, to: 8000, count: 4, size: 0.11, status: 'preview', nearFloor: true,
+      note: 'マリアナ海溝の水深7,000〜8,000mだけに住むクサウオの仲間。うろこのない半透明の体で、胸びれの長い軟条で海底をさぐる。' }
   ],
   zones: [
     { from: 0, to: 200, name: '表層', en: 'Epipelagic', short: '表層', color: '#2f93b3',

@@ -3,7 +3,18 @@
 (() => {
 const T = window.__TRENCH, S = window.__DIVE, SEA = window.SEA, UI = window.__UI;
 const { renderer, camera } = T;
-const DEFS = (SEA && SEA.creatures) || [];
+// 公開前（status: 'preview'）の生き物は、プレビュー表示を有効にしたブラウザでだけ出す。
+// URL に ?preview=on を付けて開くと有効になり（ブラウザが覚える）、?preview=off で元に戻る。
+const PREVIEW = (() => {
+  const q = new URLSearchParams(location.search).get('preview');
+  try {
+    if (q === 'on') localStorage.setItem('deepsea-preview', '1');
+    if (q === 'off') localStorage.removeItem('deepsea-preview');
+    return localStorage.getItem('deepsea-preview') === '1';
+  } catch (_) { return q === 'on'; }
+})();
+const DEFS = ((SEA && SEA.creatures) || []).filter(d => d.status !== 'preview' || PREVIEW);
+if (PREVIEW) setTimeout(() => UI.toast('プレビュー表示中: 公開前の生き物も表示されます（?preview=off で元に戻ります）'), 1200);
 
 // ---------- 近景の世界 ----------
 const scene = new THREE.Scene();
@@ -32,9 +43,12 @@ function spawn(def, near) {
   const c = {
     def, body, seed: Math.random() * 100,
     x: S.x * 1000 + Math.sin(yaw) * dist, z: S.z * 1000 + Math.cos(yaw) * dist,
-    depth: Math.max(def.from, Math.min(def.to, S.depth + (near ? -fwd.y * dist * 0 : (Math.random() - 0.5) * 12))),
+    depth: Math.max(def.from, Math.min(def.to, S.depth + (near ? 0 : (Math.random() - 0.5) * 12))),
     heading: Math.random() * Math.PI * 2
   };
+  // 海底近くに住む生き物は、その場所の海底の少し上（0.5〜4m）に出す
+  if (def.nearFloor && !near) c.depth = T.floorDepth(c.x / 1000, c.z / 1000) - (0.5 + Math.random() * 3.5);
+  if (!near && (c.depth < def.from || c.depth > def.to)) return null;   // その深さに住まない場所なら出さない
   scene.add(body.group); live.push(c);
   return c;
 }
@@ -51,7 +65,9 @@ function update(dt, t, { dive, under, depth }) {
   if ((spawnTimer -= dt) <= 0) {
     spawnTimer = 0.5;
     DEFS.forEach(def => {
-      const inRange = depth >= def.from && depth <= def.to;
+      // 海底近くに住む生き物は、プレイヤーが海底から 60m 以内にいるときだけ
+      const nearFloorOk = !def.nearFloor || T.floorDepth(S.x, S.z) - depth < 60;
+      const inRange = depth >= def.from && depth <= def.to && nearFloorOk;
       const n = live.filter(c => c.def === def).length;
       if (inRange && n < (def.count || 1)) spawn(def, false);
     });
@@ -65,8 +81,9 @@ function update(dt, t, { dive, under, depth }) {
     const sp = 0.12 + shy * 0.25;
     c.x += Math.sin(c.heading) * sp * dt; c.z += Math.cos(c.heading) * sp * dt;
     c.depth += Math.sin(t * 0.5 + c.seed) * 0.05 * dt;
-    const floor = T.floorDepth(c.x / 1000, c.z / 1000) - 1;
-    if (c.depth > floor) c.depth = floor;
+    const floorHere = T.floorDepth(c.x / 1000, c.z / 1000);
+    if (c.def.nearFloor) c.depth += (floorHere - 1.5 - c.depth) * Math.min(1, dt * 0.3);   // 海底の少し上を保つ
+    if (c.depth > floorHere - 0.3) c.depth = floorHere - 0.3;
     // 近景の座標（プレイヤーが原点、メートル単位、上が +y）
     const g = c.body.group;
     g.position.set(dx, dy + Math.sin(t * 1.6 + c.seed) * 0.03, dz);

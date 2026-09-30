@@ -196,6 +196,7 @@ function frame(now) {
   pings.forEach((p, i) => u.uPing.value[i].set(p.x, p.y, p.z, p.w));
 
   if (window.__TREASURE) window.__TREASURE.update(dt, t, { dive, under, pings });
+  window.__LIFE?.update(dt, t, { dive, under, depth: Math.max(0, d) });
   // 音: 深さ・水中かどうか・潜水艇の速さ（m/秒）を渡す
   window.__AUDIO?.update(dt, { dive, under, depth: d, motor: dive && !S.intro ? Math.max(vel.length(), S.dir ? S.speed : 0) : 0 });
 
@@ -226,6 +227,7 @@ function frame(now) {
   UI.renderPanel(d, floorD);
   if (dive) UI.drawMap(pings);
   renderer.render(scene, camera);
+  window.__LIFE?.render();          // 生き物（近景）を重ねて描く
   requestAnimationFrame(frame);
 }
 

@@ -198,10 +198,12 @@ function renderPanel(depth, floorD) {
   const record = atCD && O.dives ? `<div class="sub">${O.origin.recordTitle}</div><ul>${O.dives.map(t => `<li><span>${t}</span></li>`).join('')}</ul>` : '';
   $('life').innerHTML = `<div class="sub">この深さで出会える生き物</div>${list}${record}`;
 }
+const NARROW = matchMedia('(max-width: 760px), (max-height: 520px)');
 function renderRuler(depth, floorD, dive) {
   const n = $('now');
   n.style.top = pct(depth); n.style.display = dive ? '' : 'none';
-  n.firstChild.textContent = depth < 0 ? '海面上' : `${nf(depth)} m`;
+  // スマホ（細いルーラー）では km 表記にして幅に収める
+  n.firstChild.textContent = depth < 0 ? '海面上' : NARROW.matches ? `${(depth / 1000).toFixed(1)}km` : `${nf(depth)} m`;
   $('floor').style.top = pct(floorD);
 }
 

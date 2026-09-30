@@ -135,7 +135,7 @@ body { background: var(--abyss); color: var(--ink); font-family: var(--sans); ov
 @media (max-width: 760px), (max-height: 520px) {
   #hint, #mapbox, .sep { display: none; }
   /* 計器パネル: 普段は「深さ＋層の名前」の1行。「詳細」で開く */
-  #panel { top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; right: 56px; width: auto; padding: 8px 12px; gap: 8px;
+  #panel { top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; right: 74px; width: auto; padding: 8px 12px; gap: 8px;
     grid-template-columns: auto 1fr auto; align-items: center; max-height: 64%; }
   #panel > * { grid-column: 1 / -1; }
   #panel #depth { grid-column: 1; font-size: 24px; }
@@ -148,11 +148,14 @@ body { background: var(--abyss); color: var(--ink); font-family: var(--sans); ov
   #panel.open #zone p { display: block; }
   #panel.open { max-height: 45%; }
   /* 深度ルーラー: 細く、ボタンと重ならない高さに */
-  #ruler { top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; width: 34px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
-  #ruler .bandLbl, #ruler .mark span, #ruler .tick span, #now span { display: none; }
+  #ruler { top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; width: 54px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  #ruler .bandLbl, #ruler .mark span { display: none; }
   #ruler .mark { left: 2px; right: 14px; }
-  #ruler .band { width: 14px; }
-  #ruler .tick { width: 18px; }
+  #ruler .band { width: 12px; }
+  #ruler .tick { width: 16px; }
+  #ruler .tick span { right: 18px; top: -7px; font-size: 9px; color: #a9c1c8; }
+  /* 現在の深さ: 線の上に小さな札として出す（km 表記） */
+  #now span { left: 2px; top: -16px; font-size: 10px; padding: 0 3px; border-radius: 3px; background: rgba(3, 10, 18, .85); }
   /* 操作: 普段は1段。「設定」で残りを開く */
   #controls { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: none; max-width: none; padding: 8px; gap: 6px; }
   #controls #moreBtn { display: inline-block; }

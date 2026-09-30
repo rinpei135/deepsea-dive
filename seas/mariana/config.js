@@ -19,6 +19,11 @@ window.SEA = {
   ],
   // 隠し要素の宝箱を置く海底の最小水深 (m)
   treasureMinDepth: 2000,
+  // 3D で泳ぐ生き物（engine/creatures.js）。kind は形と動きの種類、count はプレイヤーの周りに出す数
+  creatures: [
+    { kind: 'dumbo', name: 'ジュウモンジダコ', from: 1000, to: 7000, count: 3, size: 0.35,
+      note: '耳のようなひれで泳ぐ、ダンボ・オクトパスとも呼ばれるタコの仲間。最も深い場所に住むタコのひとつ。' }
+  ],
   zones: [
     { from: 0, to: 200, name: '表層', en: 'Epipelagic', short: '表層', color: '#2f93b3',
       note: '太陽光が届き、植物プランクトンが光合成できる層。海の生き物の多くがここに集まる。' },

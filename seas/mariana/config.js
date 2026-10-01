@@ -19,13 +19,34 @@ window.SEA = {
   ],
   // 隠し要素の宝箱を置く海底の最小水深 (m)
   treasureMinDepth: 2000,
-  // 3D で泳ぐ生き物（engine/creatures.js）。kind は形と動きの種類、count はプレイヤーの周りに出す数。
+  // 3D で泳ぐ生き物（項目の意味は engine/creatures.js の先頭を参照）。
   // status: 'preview' の生き物は公開前で、通常は表示しない（プレビュー表示を有効にしたブラウザでだけ出る）。
-  // nearFloor: true の生き物は、プレイヤーが海底近くにいるときだけ、海底の少し上に出る。
   creatures: [
-    { kind: 'dumbo', name: 'ジュウモンジダコ', from: 1000, to: 7000, count: 3, size: 0.35, status: 'preview',
+    { kind: 'turtle', name: 'アオウミガメ', from: 0, to: 100, count: 1, size: 1.0, dist: [10, 28], speed: 0.4,
+      note: '海草や藻を食べるウミガメ。前あしのひれで水中を飛ぶように泳ぐ。' },
+    { kind: 'spermwhale', name: 'マッコウクジラ', from: 0, to: 2000, count: 1, size: 15, dist: [22, 40], speed: 0.8,
+      note: '大きな四角い頭を持つハクジラ。イカを求めて深く潜る、息を止めて潜る哺乳類のチャンピオン。' },
+    { kind: 'lanternfish', name: 'ハダカイワシ', from: 200, to: 1000, count: 2, size: 0.08, dist: [8, 30], speed: 0.3,
+      note: '体の下側の発光器で青く光る小さな魚の群れ。昼は深く、夜は浅いところへ上がる。' },
+    { kind: 'giantsquid', name: 'ダイオウイカ', from: 300, to: 1000, count: 1, size: 8, dist: [18, 34], speed: 0.3,
+      note: '全長10mを超えることもある巨大なイカ。目の直径は25cmほどで、動物の中で最大級。' },
+    { kind: 'helmetjelly', name: 'クロカムリクラゲ', from: 400, to: 4000, count: 2, size: 0.2, dist: [6, 30], speed: 0.05,
+      note: '世界の深海に広く住む、暗い赤色のかぶと形のクラゲ。青く光る。' },
+    { kind: 'vampire', name: 'コウモリダコ', from: 600, to: 1200, count: 2, size: 0.25,
+      note: '赤黒い体と大きな青い目を持つ、タコとイカの中間のような生き物。酸素がきわめて少ない層でも生きられる。' },
+    { kind: 'tripodfish', name: 'ナガヅエエソ', from: 900, to: 4700, count: 3, size: 0.3, habitat: 'onFloor', speed: 0,
+      note: '長いひれを三脚のように立てて海底から浮き、流れてくる獲物を待つ魚。' },
+    { kind: 'dumbo', name: 'ジュウモンジダコ', from: 1000, to: 7000, count: 3, size: 0.35,
       note: '耳のようなひれで泳ぐ、ダンボ・オクトパスとも呼ばれるタコの仲間。最も深い場所に住むタコのひとつ。' },
-    { kind: 'snailfish', name: 'マリアナスネイルフィッシュ', from: 6900, to: 8000, count: 4, size: 0.11, status: 'preview', nearFloor: true,
+    { kind: 'anglerfish', name: 'チョウチンアンコウの仲間', from: 1000, to: 4000, count: 1, size: 0.12, dist: [6, 25], speed: 0.03,
+      note: '頭の先の誘引突起が、共生する発光バクテリアの光で光り、獲物をおびき寄せる。' },
+    { kind: 'seacucumber', name: 'ナマコの仲間', from: 3000, to: 10900, count: 5, size: 0.2, habitat: 'onFloor', speed: 0.01, dist: [4, 30],
+      note: '超深海の海底で最も多い生き物のひとつ。積もった有機物を食べて暮らす。' },
+    { kind: 'xenophyophore', name: 'クセノフィオフォア', from: 6000, to: 10900, count: 6, size: 0.1, habitat: 'onFloor', speed: 0, dist: [3, 25],
+      note: '単細胞なのに10cmほどにもなる巨大な原生生物。海底の泥の粒を固めて殻をつくる。' },
+    { kind: 'amphipod', name: 'カイコウオオソコエビ', from: 6000, to: 10900, count: 10, size: 0.04, habitat: 'nearFloor', dist: [2, 12], speed: 0.25,
+      note: 'チャレンジャー海淵の底にも群れで暮らすヨコエビの仲間。木の成分を分解する酵素を持つ。' },
+    { kind: 'snailfish', name: 'マリアナスネイルフィッシュ', from: 6900, to: 8000, count: 4, size: 0.11, habitat: 'nearFloor',
       note: 'マリアナ海溝の水深7,000〜8,000mだけに住むクサウオの仲間。うろこのない半透明の体で、胸びれの長い軟条で海底をさぐる。' }
   ],
   zones: [

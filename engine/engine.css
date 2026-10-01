@@ -119,6 +119,18 @@ body { background: var(--abyss); color: var(--ink); font-family: var(--sans); ov
   border-radius: 6px; padding: 8px; font: 12px/1.6 var(--sans); }
 #found .row { display: flex; gap: 8px; justify-content: flex-end; }
 
+/* 生き物の表示（プレビュー中だけ） */
+#lifeSel { left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); width: min(420px, calc(100% - 32px));
+  max-height: calc(100% - 200px); overflow-y: auto; padding: 14px 16px; display: grid; gap: 10px; z-index: 5; }
+#lifeSel header { display: flex; align-items: center; justify-content: space-between; }
+#lifeSel h3 { margin: 0; font-family: var(--serif); font-size: 16px; letter-spacing: .06em; }
+#lifeSel p { margin: 0; font-size: 12px; line-height: 1.7; color: #b3cad1; }
+#lifeSel .row { display: flex; gap: 8px; }
+#lifeSel ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+#lifeSel label { display: flex; align-items: baseline; gap: 8px; font-size: 13px; cursor: pointer; padding: 4px 2px; }
+#lifeSel label span { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+#lifeSel input { accent-color: var(--sonar); }
+
 #src { font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
 #src summary { cursor: pointer; letter-spacing: .1em; color: var(--sonar); }
 #src ul { margin: 8px 0 0; padding-left: 16px; display: grid; gap: 6px; line-height: 1.6; }
@@ -166,6 +178,7 @@ body { background: var(--abyss); color: var(--ink); font-family: var(--sans); ov
   #pad .btn { padding: 7px 0; }
   #toast, #toast.show { top: calc(64px + env(safe-area-inset-top, 0px)); transform: translate(-50%, 0); font-size: 12px; }
   #quest { left: 12px; right: 12px; width: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  #lifeSel { left: 12px; right: 12px; width: auto; transform: none; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-height: 60%; }
   #echo { top: auto; bottom: calc(190px + env(safe-area-inset-bottom, 0px)); white-space: normal; }
 }
 /* 設定を開いたときは、パッドを操作ボタンの上に逃がす */

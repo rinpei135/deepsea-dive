@@ -872,7 +872,22 @@ function subject(fwd, px, pz, depth) {
   BIG.forEach(b => b.on && check(b.def, b.on.x, b.on.d, b.on.z, b.len));
   return best && { def: best, score };
 }
+// 「この深さで出会える生き物」（ui.js の左の欄）に、いまいる場所の浅い海の生き物を出す（公開前の表示のときだけ）。
+// ダイブポイントの近くはそこに群れる魚とまわりの生き物、サンゴ礁の上は代表的な礁の魚。外洋の生き物は pelagic.js が nearbyExtra に足す
+const nearbyExtra = [];
+function nearby(px, pz, depth, floorD) {
+  const out = [], add = def => { if (def && def.name && !out.some(o => o.name === def.name)) out.push({ name: def.name, note: def.note.split('。')[0] + '。' }); };
+  if (depth > 45) return out;
+  POINTS().forEach(st => {
+    if (Math.hypot(st.x - px, st.z - pz) > 400) return;
+    st.fish.forEach(r => { const f = FISH.find(q => q.kind === r.kind); add(f && f.def); });
+    (st.guests || []).forEach(gs => add(((window.SEA && window.SEA.creatures) || []).find(d => d.kind === gs.kind)));
+  });
+  if (floorD < 45) ['anthias', 'hepatus', 'chromis', 'parrot', 'clown'].forEach(k => add(FISH.find(f => f.kind === k).def));
+  nearbyExtra.forEach(fn => fn(px, pz, depth, floorD).forEach(add));
+  return out.slice(0, 6);
+}
 REEF.rebuild = rebuild; REEF.frame = frame; REEF.hide = hide; REEF.subject = subject;
-window.__REEF = { FISH, BOTTOM, BIG, schools, species: REEF_SPECIES,
+window.__REEF = { FISH, BOTTOM, BIG, schools, species: REEF_SPECIES, nearby, nearbyExtra,
   kit: { fishGeo, swayMat, instanced, merge, paint, mixc, silverMat, D, thumbMesh, meetDef, TIME, AIR, CAMD } };   // 外洋の生き物（pelagic.js）が使う
 })();

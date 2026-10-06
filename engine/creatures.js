@@ -820,18 +820,26 @@ const warmOrder = ALL.slice().sort((a, b) => a.from - b.from);
 // 近くの見どころの体・サンゴ礁や外洋の生き物・海底・光の筋など、近景のすべての材質）のシェーダーをまとめて作る。
 // 深い所の生き物は、潜っていく途中で、その深さに近づいたものから 1 種類ずつ作る（2 回目からは、ブラウザが作ったものを覚えているので速い）
 let warmed = false, warmWait = 0;
+// 潜る場所に合わせて、すぐには使わないものは外す（初めて出会う直前に作る）: 海底が 40m より深ければサンゴと光の筋、150m より深ければ
+// 近くの海底と岩、300m より深ければ見どころ（海底にある）。回遊する生き物（マッコウクジラ）は回遊の中心から 15km 以内のときだけ
 function warmAll() {
-  const made = [], px = S.x * 1000, pz = S.z * 1000;
+  const made = [], px = S.x * 1000, pz = S.z * 1000, floor0 = floorAt(px, pz), off = [];
+  const hide = o => { if (o.parent === scene) { scene.remove(o); off.push(o); } };
+  if (floor0 >= 40) { Object.values(corals).forEach(hide); hide(shafts); }
+  if (floor0 >= 150) { hide(bed); hide(rocks); }
+  const nearPod = def => (def.pods || []).some(p => Math.hypot(T.toX(p.lon) * 1000 - px, T.toZ(p.lat) * 1000 - pz) < 15000);
   warmOrder.forEach(def => {
-    if (def.from >= 200 || !enabled(def) || !BUILDERS[def.kind] || (pool[def.kind] && pool[def.kind].length)) return;
+    if (def.from >= 200 || (def.behavior === 'migrate' && !nearPod(def)) || !enabled(def) || !BUILDERS[def.kind] || (pool[def.kind] && pool[def.kind].length)) return;
     const body = BUILDERS[def.kind](sizeOf(def)); withCaustics(body.group); scene.add(body.group); made.push([def, body]);
   });
-  const near = sites.filter(st => BUILDERS[st.kind] && Math.hypot(st.x - px, st.z - pz) < 5000);
+  const near = floor0 < 300 ? sites.filter(st => BUILDERS[st.kind] && Math.hypot(st.x - px, st.z - pz) < 5000) : [];   // 見どころは海底にあるので、深い海の上から潜るときは外す
   near.forEach(st => { if (!st.body) makeSiteBody(st); if (!st.body.group.parent) scene.add(st.body.group); });
   renderer.compile(scene, cam);
   renderer.compile(T.scene, camera);                                  // 海面・空・水しぶきなど（地形の世界）も
+  renderer.compile(cauScene, cauCam);                                 // 光の網目を画像に描くシェーダー（水深 60m まではどこでも使う）
   made.forEach(([def, body]) => giveBack(def, body));
   near.forEach(st => scene.remove(st.body.group));
+  off.forEach(o => scene.add(o));
   if (REEF.warm) REEF.warm();                                         // 海面より上を描く場面（pelagic.js）の材質も
 }
 function prewarm(depth, all) {

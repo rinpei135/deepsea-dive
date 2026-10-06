@@ -876,7 +876,9 @@ function subject(fwd, px, pz, depth) {
 // ダイブポイントの近くはそこに群れる魚とまわりの生き物、サンゴ礁の上は代表的な礁の魚。外洋の生き物は pelagic.js が nearbyExtra に足す
 const nearbyExtra = [];
 function nearby(px, pz, depth, floorD) {
-  const out = [], add = def => { if (def && def.name && !out.some(o => o.name === def.name)) out.push({ name: def.name, note: def.note.split('。')[0] + '。' }); };
+  // 説明は図鑑の文の、はじめの 1〜2 文（1 文目が短いときは 2 文目まで）
+  const brief = note => { const ss = note.split('。').filter(Boolean).map(t => t + '。'); return ss[0].length < 30 && ss[1] ? ss[0] + ss[1] : ss[0]; };
+  const out = [], add = def => { if (def && def.name && def.note && !out.some(o => o.name === def.name)) out.push({ name: def.name, note: brief(def.note) }); };
   if (depth > 45) return out;
   POINTS().forEach(st => {
     if (Math.hypot(st.x - px, st.z - pz) > 400) return;

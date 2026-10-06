@@ -79,7 +79,7 @@ HTML 自体は GitHub Pages の設定で最大10分ほどブラウザに保存�
 
 ```
 pip install selenium pillow imageio-ffmpeg
-python -m http.server 8740          # リポジトリのルートで起動しておく
+python tools/serve.py               # リポジトリのルートで起動しておく（http://localhost:8740/。ブラウザに古いページを使い回させない）
 python tools/record_preview.py      # promo/preview.mp4 に出力（promo/ は Git 管理外）
 ```
 

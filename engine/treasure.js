@@ -32,7 +32,7 @@ const dir16 = (dx, dz) => DIRS16[Math.round(((Math.atan2(dx, -dz) * 180 / Math.P
 const HINTS = [
   `今日の宝箱は、水深およそ${nf(Math.round(floorD / 500) * 500)}mの海底に沈んでいる。`,
   `${SEA.origin.name}から見て${dir16(X, Z)}の方角、およそ${nf(Math.round(Math.hypot(X, Z) / 10) * 10)}km。`,
-  `北緯${SPOT.lat.toFixed(1)}°・東経${SPOT.lon.toFixed(1)}°のあたり。ミニマップをクリックすれば近くまで移動できる。`
+  `北緯${SPOT.lat.toFixed(1)}°・東経${SPOT.lon.toFixed(1)}°のあたり。ダイブマップで選べば近くまで移動できる。`
 ];
 const KEY = `deepsea-${SEA.id}-treasure-${TODAY}`;
 const load = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (_) { return null; } };
@@ -40,9 +40,9 @@ const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } cat
 let rec = load(KEY) || { hints: 0, found: null, diveSecs: 0 };
 
 // ---------- 宝箱の模型 ----------
-const U = 0.012;                  // 模型の単位（シーン単位。宝箱の幅 ≈ 3U）
+const U = 0.0004;                 // 模型の単位（シーン単位 = km。宝箱の幅 ≈ 3U ≈ 1.2m）
 const wood = new THREE.MeshStandardMaterial({ color: 0x6b3f1f, roughness: 0.8, metalness: 0.05, emissive: 0x080402 });
-const gold = new THREE.MeshStandardMaterial({ color: 0xe6b84a, roughness: 0.35, metalness: 0.9, emissive: 0x120b00 });
+const gold = new THREE.MeshStandardMaterial({ color: 0xe6b84a, roughness: 0.35, metalness: 0.9, emissive: 0x3a2808 });   // 暗い海底でも、金具がほのかに光って見える
 const chest = new THREE.Group();
 const body = new THREE.Mesh(new THREE.BoxGeometry(3 * U, 1.6 * U, 2 * U), wood);
 body.position.y = 0.8 * U; chest.add(body);
@@ -76,7 +76,7 @@ const SPARK = 160, sparkGeo = new THREE.BufferGeometry(), sp = new Float32Array(
 for (let i = 0; i < SPARK; i++) sv.push([(Math.random() - 0.5) * 0.6, 0.6 + Math.random(), (Math.random() - 0.5) * 0.6]);
 sparkGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));
 const sparkMat = new THREE.PointsMaterial({ color: 0xffd36b, size: 3, sizeAttenuation: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-const sparks = new THREE.Points(sparkGeo, sparkMat); sparks.frustumCulled = false; scene.add(sparks);
+const sparks = new THREE.Points(sparkGeo, sparkMat); sparks.frustumCulled = false; chest.add(sparks);   // 宝箱の中から舞い上がる（宝箱の単位で動かす）
 let openT = rec.found ? 99 : -1;
 
 // ---------- 画面 ----------
@@ -122,18 +122,28 @@ renderQuest();
 const echoes = new WeakMap();
 let echoUntil = 0, saveTick = 0;
 function update(dt, t, { dive, under, pings }) {
-  const y = -floorD / 1000 * state.ex;
-  chest.position.set(X, y + 0.002, Z);
-  chestLight.position.set(X, y + 0.05, Z);
-  beacon.position.set(X, y + 0.02, Z);
+  const y = -T.exDepth(floorD, state.ex) / 1000;
   const near = Math.hypot(S.x - X, S.z - Z);                 // km
   const vert = Math.abs(Math.max(0, S.depth) - floorD) / 1000;
   const d3 = Math.hypot(near, vert);
-  // 金色の光は宝箱の近く（約1.5km以内）でだけ、ほのかに見える
-  beacon.visible = under && d3 < 1.5;
-  beacon.scale.setScalar(0.05 * (1 + 0.12 * Math.sin(t * 2.5)));
+  // 宝箱は本物の大きさ（幅 約1.2m）。遠くは地形の世界に、近く（300m 以内）は近景の世界（creatures.js。m 単位で、近くの海底の上）に置く
+  // （地形の世界のままだと、近くの海底に隠れるため）
+  const A = window.__LIFE && window.__LIFE.reefApi, close = A && dive && under && d3 < 0.3;
+  if (close) {
+    if (chest.parent !== A.scene) A.scene.add(chest);
+    chest.scale.setScalar(1000);
+    chest.position.set((X - S.x) * 1000, Math.max(0, S.depth) - A.seabedY(X * 1000, Z * 1000), (Z - S.z) * 1000);
+  } else {
+    if (chest.parent !== scene) scene.add(chest);
+    chest.scale.setScalar(1); chest.position.set(X, y, Z);
+  }
+  chestLight.position.set(X, y + 0.01, Z);
+  beacon.position.set(X, y + 0.003, Z);
+  // 金色の光は宝箱の近く（約1.5km以内）でだけ、ほのかに見える。近づくほど小さく（すぐそばでは宝箱を包む程度）
+  beacon.visible = under && d3 < 1.5 && !close;
+  beacon.scale.setScalar(Math.max(0.006, Math.min(0.05, d3 * 0.04)) * (1 + 0.12 * Math.sin(t * 2.5)));
   beacon.material.opacity = 0.55 * Math.min(1, (1.5 - d3) / 1.0);
-  lamp.position.copy(camera.position); lamp.visible = under && S.depth > 150;
+  lamp.position.copy(camera.position); lamp.visible = under && S.depth > 150 && S.lamp;
   // ソナー地形の金色は宝箱から 5km 以内でだけ、近いほど濃く（海面からは見えない）
   terrainMat.uniforms.uChest.value.set(X, y, Z, rec.found ? 0 : Math.max(0, Math.min(1, (5 - d3) / 3)) * 0.7);
 
@@ -141,8 +151,8 @@ function update(dt, t, { dive, under, pings }) {
   if (!rec.found) {
     rec.diveSecs += dt;
     if ((saveTick += dt) > 5) { saveTick = 0; save(KEY, rec); }
-    // 発見: 水平 120m 以内、上下 250m 以内
-    if (near < 0.12 && vert < 0.25) {
+    // 発見: 水平 30m 以内、上下 60m 以内（宝箱が見える近さ）
+    if (near < 0.03 && vert < 0.06) {
       rec.found = { at: Date.now(), secs: rec.diveSecs, hints: rec.hints };
       save(KEY, rec); openT = 0; renderQuest(); showFound();
       S.dir = 0; S.goal = null; UI.syncGo();
@@ -178,8 +188,8 @@ function update(dt, t, { dive, under, pings }) {
     sparkMat.opacity = a;
     if (a > 0) {
       for (let i = 0; i < SPARK; i++) {
-        const v = sv[i], s = openT * 0.02;
-        sp[i * 3] = X + v[0] * s; sp[i * 3 + 1] = y + 0.02 + v[1] * s; sp[i * 3 + 2] = Z + v[2] * s;
+        const v = sv[i], s = openT * 1.5 * U;                      // 宝箱の単位（1 秒に 宝箱の幅の半分ほど舞い上がる）
+        sp[i * 3] = v[0] * s; sp[i * 3 + 1] = 1.5 * U + v[1] * s; sp[i * 3 + 2] = v[2] * s;
       }
       sparkGeo.attributes.position.needsUpdate = true;
     }

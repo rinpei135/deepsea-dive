@@ -72,12 +72,13 @@ body { background: var(--abyss); color: var(--ink); font-family: var(--sans); ov
   padding: 10px 12px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; max-width: calc(100% - 260px); }
 .btn { all: unset; cursor: pointer; font-size: 12px; padding: 7px 11px; border-radius: 6px; border: 1px solid var(--line); white-space: nowrap; }
 .btn:hover { border-color: var(--sonar); }
+.btn[hidden] { display: none; }
 .btn[aria-pressed="true"] { background: var(--sonar-dim); border-color: var(--sonar); color: var(--sonar); }
 .btn.primary { background: var(--sonar); color: #02202a; border-color: var(--sonar); font-weight: 700; }
 .btn:focus-visible { outline: 2px solid var(--sonar); outline-offset: 2px; }
 .grp { display: flex; gap: 4px; }
 .sep { width: 1px; height: 22px; background: var(--line); }
-#toast { position: fixed; left: 50%; top: calc(24px + env(safe-area-inset-top, 0px)); transform: translate(calc(-50% + 60px), -8px); opacity: 0;
+#toast { position: fixed; left: 50%; top: calc(64px + env(safe-area-inset-top, 0px)); transform: translate(calc(-50% + 60px), -8px); opacity: 0;
   background: var(--panel); border: 1px solid var(--sonar); color: var(--ink); padding: 10px 16px; border-radius: 8px; font-size: 13px;
   transition: opacity .4s, transform .4s; pointer-events: none; max-width: min(460px, calc(100% - 32px)); text-align: center; }
 #toast.show { opacity: 1; transform: translate(calc(-50% + 60px), 0); }
@@ -87,8 +88,20 @@ body { background: var(--abyss); color: var(--ink); font-family: var(--sans); ov
   background: radial-gradient(ellipse at 50% 30%, rgba(210, 242, 250, .55), rgba(60, 160, 190, .35) 60%, rgba(20, 90, 120, .5)); }
 #splash.show { opacity: 1; transition: opacity .12s; }
 
-#mapbox { top: calc(16px + env(safe-area-inset-top, 0px)); right: 220px; padding: 8px; display: grid; gap: 4px; }
-#map { width: 200px; height: auto; display: block; border-radius: 4px; cursor: crosshair; image-rendering: auto; }
+/* 表示の切り替え（3D ⇄ ダイブマップ） */
+#tabs { top: calc(16px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(calc(-50% + 60px)); display: flex; gap: 2px; padding: 3px; z-index: 6; }
+#tabs .tab { all: unset; cursor: pointer; font-size: 12px; padding: 6px 14px; border-radius: 7px; color: var(--muted); letter-spacing: .05em; }
+#tabs .tab[aria-selected="true"] { background: var(--sonar-dim); color: var(--sonar); }
+#tabs .tab:focus-visible { outline: 2px solid var(--sonar); }
+/* ダイブマップ（画面いっぱい） */
+#divemap { position: fixed; inset: 0; z-index: 5; background: #061420; }
+#dmap { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
+#divemap .zoom { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top, 0px)); display: grid; gap: 6px; }
+#divemap .zoom .btn { text-align: center; background: var(--panel); min-width: 22px; }
+#dmapCard { left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); padding: 12px 16px; display: grid; gap: 6px; justify-items: center; min-width: min(360px, calc(100% - 32px)); text-align: center; }
+#dmapWhere { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+#dmapDepth { font-size: 13px; color: #b3cad1; min-height: 1em; }
+#dmapGo[disabled] { opacity: .4; cursor: default; }
 .maplbl { font-size: 10px; color: var(--muted); letter-spacing: .06em; }
 #pad { left: 16px; bottom: calc(52px + env(safe-area-inset-bottom, 0px)); padding: 8px; display: grid; grid-template-columns: repeat(3, 48px); gap: 6px; }
 #pad .btn { text-align: center; padding: 8px 0; user-select: none; -webkit-user-select: none; touch-action: none; }
@@ -131,6 +144,63 @@ body { background: var(--abyss); color: var(--ink); font-family: var(--sans); ov
 #lifeSel label span { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--muted); }
 #lifeSel input { accent-color: var(--sonar); }
 
+/* 図鑑と実績 */
+#zukanBtn { border-color: rgba(142, 230, 242, .45); }
+#zukanBtn.new::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: #f3cf86; vertical-align: 2px; }
+/* 図鑑: 上の「3D / ダイブマップ」と、下の操作ボタンの間に置く（ボタンを隠さない）。--zk-bottom は zukan.js が操作ボタンの高さから決める。
+   見出し（閉じるボタン）とタブは動かさず、一覧だけをスクロールする */
+#zukan { left: 50%; top: 64px; bottom: var(--zk-bottom, 160px); transform: translateX(-50%); width: min(760px, calc(100% - 32px)); max-height: none;
+  overflow: hidden; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; z-index: 6; }
+#zukan > header, #zukan > .tabs { flex: none; }
+#zkLife, #zkAchv { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+#zukan header { display: flex; align-items: baseline; gap: 12px; }
+#zukan h3 { margin: 0; font-family: var(--serif); font-size: 20px; letter-spacing: .08em; }
+#zkCount { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+#zkClose { margin-left: auto; }
+#zukan .tabs { display: flex; gap: 6px; }
+#zukan .tabs .btn[aria-selected="true"] { background: var(--sonar-dim); border-color: var(--sonar); color: var(--sonar); }
+#zukan .lead, #zukan .none { margin: 0; font-size: 12px; color: #b3cad1; line-height: 1.7; }
+#zukan .cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; }
+#zukan .cards li { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px 10px; display: grid; gap: 4px; align-content: start; background: rgba(0, 0, 0, .18); }
+#zukan .cards li.got { border-color: rgba(142, 230, 242, .35); }
+#zukan .cards img { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; border-radius: 4px; background: radial-gradient(ellipse at 50% 60%, rgba(40, 90, 110, .45), rgba(4, 16, 26, .2)); }
+#zukan .cards b { font-family: var(--serif); font-size: 15px; letter-spacing: .04em; }
+#zukan .cards .unk b { color: var(--muted); letter-spacing: .3em; }
+#zukan .cards i { font-family: var(--mono); font-style: normal; font-size: 10.5px; color: var(--muted); }
+#zukan .cards p { margin: 0; font-size: 11.5px; line-height: 1.6; color: #b3cad1; }
+#zukan .cards small { font-family: var(--mono); font-size: 10.5px; color: var(--sonar); }
+#zukan .achv { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+#zukan .achv li { display: grid; grid-template-columns: 22px 1fr auto; column-gap: 8px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+#zukan .achv li .mark { grid-row: span 2; color: var(--muted); font-size: 15px; }
+#zukan .achv li.got { border-color: rgba(243, 200, 110, .45); }
+#zukan .achv li.got .mark, #zukan .achv li.got b { color: #f3cf86; }
+#zukan .achv b { font-size: 14px; font-weight: 500; }
+#zukan .achv p { grid-column: 2; margin: 0; font-size: 11.5px; color: #b3cad1; line-height: 1.6; }
+#zukan .achv small { grid-column: 3; grid-row: 1; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+#zukan .cards .shot { position: relative; }
+#zukan .cards .shot::after { content: "写真"; position: absolute; left: 6px; top: 6px; font-size: 10px; letter-spacing: .1em; padding: 1px 6px; border-radius: 4px; background: rgba(3, 10, 18, .75); color: var(--sonar); }
+#zukan .cards .shot img { object-fit: cover; }
+/* 高度計（海底まで） */
+#alt { left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); padding: 6px 14px; display: flex; align-items: baseline; gap: 10px; }
+#alt span { font-size: 11px; letter-spacing: .12em; color: var(--muted); }
+#alt b { font-family: var(--mono); font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--sonar); }
+#alt.warn { border-color: rgba(243, 200, 110, .7); }
+#alt.warn b { color: #f3cf86; }
+#alt[hidden] { display: none; }
+/* 撮影の光 */
+#flash { position: fixed; inset: 0; pointer-events: none; background: #fff; opacity: 0; transition: opacity .5s ease-out; z-index: 8; }
+#flash.on { opacity: .75; transition: none; }
+/* 図鑑に登録・実績解除の知らせ */
+#award { position: fixed; left: 50%; top: calc(76px + env(safe-area-inset-top, 0px)); transform: translate(calc(-50% + 60px), -10px); opacity: 0; pointer-events: none;
+  display: grid; gap: 2px; justify-items: center; text-align: center; max-width: min(460px, calc(100% - 32px)); padding: 12px 22px 13px;
+  background: var(--panel); border: 1px solid var(--sonar); border-radius: 10px; backdrop-filter: blur(6px); transition: opacity .4s, transform .4s; z-index: 7; }
+#award.show { opacity: 1; transform: translate(calc(-50% + 60px), 0); }
+#award small { font-size: 10.5px; letter-spacing: .3em; color: var(--sonar); }
+#award b { font-family: var(--serif); font-size: 20px; letter-spacing: .08em; }
+#award span { font-size: 12px; color: #b3cad1; line-height: 1.6; }
+#award.achv { border-color: rgba(243, 200, 110, .8); }
+#award.achv small, #award.achv b { color: #f3cf86; }
+
 #src { font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
 #src summary { cursor: pointer; letter-spacing: .1em; color: var(--sonar); }
 #src ul { margin: 8px 0 0; padding-left: 16px; display: grid; gap: 6px; line-height: 1.6; }
@@ -145,7 +215,10 @@ body { background: var(--abyss); color: var(--ink); font-family: var(--sans); ov
 
 /* スマホ（縦）と、高さの低い画面（スマホ横向き）: 景色が主役になるよう、普段は最小限だけ表示 */
 @media (max-width: 760px), (max-height: 520px) {
-  #hint, #mapbox, .sep { display: none; }
+  #hint, .sep { display: none; }
+  #tabs { top: auto; bottom: calc(118px + env(safe-area-inset-bottom, 0px)); left: 12px; transform: none; }
+  #divemap .zoom { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); right: 12px; }
+  #dmapCard { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
   /* 計器パネル: 普段は「深さ＋層の名前」の1行。「詳細」で開く */
   #panel { top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; right: 74px; width: auto; padding: 8px 12px; gap: 8px;
     grid-template-columns: auto 1fr auto; align-items: center; max-height: 64%; }
@@ -179,10 +252,16 @@ body { background: var(--abyss); color: var(--ink); font-family: var(--sans); ov
   #toast, #toast.show { top: calc(64px + env(safe-area-inset-top, 0px)); transform: translate(-50%, 0); font-size: 12px; }
   #quest { left: 12px; right: 12px; width: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
   #lifeSel { left: 12px; right: 12px; width: auto; transform: none; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-height: 60%; }
+  #alt { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); padding: 4px 10px; }
+  #alt b { font-size: 16px; }
+  #zukan { left: 12px; right: 12px; top: calc(12px + env(safe-area-inset-top, 0px)); bottom: var(--zk-bottom, calc(76px + env(safe-area-inset-bottom, 0px))); width: auto; max-height: none; transform: none; padding: 12px; }
+  #zukan .cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  #award, #award.show { top: calc(112px + env(safe-area-inset-top, 0px)); transform: translate(-50%, 0); padding: 10px 16px; }
+  #award b { font-size: 17px; }
   #echo { top: auto; bottom: calc(190px + env(safe-area-inset-bottom, 0px)); white-space: normal; }
 }
 /* 設定を開いたときは、パッドを操作ボタンの上に逃がす */
 @media (max-width: 760px), (max-height: 520px) {
   body.more-open #pad { bottom: calc(200px + env(safe-area-inset-bottom, 0px)); }
 }
-@media (prefers-reduced-motion: reduce) { #toast, #splash { transition: none; } }
+@media (prefers-reduced-motion: reduce) { #toast, #splash, #award { transition: none; } }

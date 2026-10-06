@@ -10,7 +10,7 @@
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../../engine/engine.css?v=35d39b72">
+<link rel="stylesheet" href="../../engine/engine.css?v=d24e4293">
 </head>
 <body>
 
@@ -33,8 +33,16 @@
         NOAA CoastWatch ERDDAP（データセット ETOPO_2022_v1_15s）から北緯10–14°・東経140.5–145.5°を1点おき（30秒角 ≈ 0.9km間隔）に取得。
         <a href="https://coastwatch.pfeg.noaa.gov/erddap/griddap/ETOPO_2022_v1_15s.html" target="_blank" rel="noopener">ERDDAP</a>（2026-09-28 取得）。
         利用条件：CC0 1.0（パブリックドメイン。NOAA が米国外を含め権利を放棄）。航行用には使用できません。</li>
-      <li><b>海淵の深さについて</b>ETOPO 2022 は全球モデルのため、幅の狭い海淵の最深部はならされて浅めに出ます。このデータではチャレンジャー海淵が約10,580m、シレナ海淵付近が約10,790mです。チャレンジャー海淵の実測の最新値は約10,935m（Greenaway ほか 2021, Deep-Sea Research Part I）。</li>
-      <li><b>ソナーの速さ</b>海水中の音速（約1,500m/秒。水温・塩分・水圧により約1,450〜1,550m/秒で変わる）。</li>
+      <li><b>細かい地形（チャレンジャー海淵・シレナ海淵・熱水噴出孔の周辺）</b>Ryan, W. B. F. ほか (2009): Global Multi-Resolution Topography synthesis. Geochem. Geophys. Geosyst., 10, Q03014.
+        <a href="https://doi.org/10.1029/2008GC002332" target="_blank" rel="noopener">doi:10.1029/2008GC002332</a>。
+        <a href="https://www.gmrt.org/" target="_blank" rel="noopener">GMRT</a> GridServer から高解像度格子を取得し、チャレンジャー海淵（北緯10.95–11.6°・東経141.9–143.0°）とシレナ海淵（北緯11.85–12.25°・東経144.25–144.9°）は4点ごとに平均（約240m間隔）、熱水噴出孔（北緯12.85–13.05°・東経143.5–143.75°）とグアム島の周辺（北緯13.18–13.72°・東経144.57–145.03°、陸地の高さを含む）は2点ごとに平均（約120m間隔）。船の音響測深データに基づく。ダイブマップの背景画像も GMRT の約120m格子から作成（約160m/画素）。
+        利用条件：<a href="https://creativecommons.org/licenses/by/4.0/deed.ja" target="_blank" rel="noopener">CC BY 4.0</a>（2026-10-02 取得）。</li>
+      <li><b>グアム島の衛星写真と細かい陸地</b>衛星写真: Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 &amp; 2017)、CC BY 4.0。陸地の高さ（約20m）: Mapzen Terrain Tiles（AWS Open Data）。United States 3DEP (formerly NED) and global GMTED2010 and SRTM terrain data courtesy of the U.S. Geological Survey. 木の位置は衛星写真の緑の所から決めたもので、実際の1本1本の位置ではありません。</li>
+      <li><b>浅い礁の扱い</b>グアム島以外で海面より高く出ている浅い礁（サンタローサ礁など）は、データの誤差として水深6mの浅瀬にしています。</li>
+      <li><b>海淵の深さについて</b>チャレンジャー海淵の底は、西・中央・東の3つのくぼみに分かれています。細かい地形データでは最深部が約10,935m で、実測の最新値（約10,935m、Greenaway ほか 2021, Deep-Sea Research Part I）とほぼ同じです。ETOPO 2022 だけを使う範囲では、幅の狭い海淵の最深部はならされて浅めに出ます（シレナ海淵付近が約10,790m）。</li>
+      <li><b>深海の音</b>遠くの地震の地鳴り・クジラの声・海面を通る船の音は、2015年にチャレンジャー海淵の底で録音された音（NOAA ほか）を参考に、その場で合成しています（録音そのものは使っていません）。</li>
+      <li><b>魚がすめる限界（約8,200m）</b>Yancey ほか (2014), PNAS 111, 4461–4465。細胞を水圧から守る物質（TMAO）の量から推定された深さです。</li>
+      <li><b>ソナーの速さ</b>海水中の音速。Mackenzie（1981）の式で、水温・塩分・深さから計算（水深1,000m付近で最も遅く約1,485m/秒、海溝の底では水圧で速くなり約1,655m/秒）。海底からのこだまも、往復の時間だけ遅れて返る。</li>
       <li><b>水温・太陽光・生き物</b>熱帯西太平洋の一般的な値と、海洋生物学の一般的な知見をまとめた概算です。この地点で測った値ではありません。</li>
       <li><b>海面・空</b>波（貿易風帯の波高を想定したゲルストナー波）、雲、光の筋は表現用に作ったもので、観測データではありません。</li>
     </ul>
@@ -51,8 +59,9 @@
   <span class="sep"></span>
   <button class="btn primary" id="go" type="button">潜航開始 ▼</button>
   <button class="btn" id="up" type="button">浮上 ▲</button>
+  <button class="btn" id="lamp" type="button" aria-pressed="true" title="潜水艇のライト（L キー）" hidden>ライト</button>
+  <button class="btn" id="shot" type="button" title="撮影して図鑑に写真を貼る（P キー）" hidden>撮影</button>
   <button class="btn mini" id="moreBtn" type="button" aria-expanded="false" aria-controls="controls">設定 ▴</button>
-  <div class="grp more" id="speeds"></div>
   <span class="sep more"></span>
   <button class="btn more" id="surf" type="button" aria-pressed="true">海面</button>
   <button class="btn more" id="sonar" type="button" aria-pressed="true">自動ソナー</button>
@@ -63,6 +72,7 @@
     <input id="vol" type="range" min="0" max="100" step="1" value="30" aria-label="音量">
   </div>
   <button class="btn more" id="exag" type="button">高さ ×4</button>
+  <button class="btn more" id="qual" type="button" title="描画の細かさ・光のにじみなど">画質 高</button>
 </section>
 
 <div id="splash"></div>
@@ -99,9 +109,23 @@
   </div>
 </section>
 
-<section id="mapbox" class="hud" hidden>
-  <canvas id="map" width="601" height="481" aria-label="ミニマップ（クリックでその地点へ移動）"></canvas>
-  <div class="maplbl">ミニマップ · クリックで移動</div>
+<nav id="tabs" class="hud" role="tablist" aria-label="表示の切り替え（M キー）">
+  <button class="tab" id="tab3d" type="button" role="tab" aria-selected="true">3D</button>
+  <button class="tab" id="tabMap" type="button" role="tab" aria-selected="false">ダイブマップ</button>
+</nav>
+
+<section id="divemap" hidden aria-label="ダイブマップ">
+  <canvas id="dmap" aria-label="ダイブマップ（クリックで潜る地点を選ぶ・ドラッグで移動・ホイールで拡大）"></canvas>
+  <div class="zoom">
+    <button class="btn" id="dmapIn" type="button" aria-label="拡大">＋</button>
+    <button class="btn" id="dmapOut" type="button" aria-label="縮小">－</button>
+    <button class="btn" id="dmapFit" type="button">全体</button>
+  </div>
+  <div id="dmapCard" class="hud">
+    <div id="dmapWhere"></div>
+    <div id="dmapDepth"></div>
+    <button class="btn primary" id="dmapGo" type="button" disabled>ここに潜る</button>
+  </div>
 </section>
 
 <section id="pad" class="hud" aria-label="移動" hidden>
@@ -113,19 +137,26 @@
   <button class="btn" type="button" data-k="KeyD" title="右へ (D)">▶</button>
 </section>
 <div id="toast" role="status"></div>
+<div id="alt" class="hud" hidden><span>海底まで</span><b></b></div>
 <div id="hint">ドラッグで見回す · ホイールや↑↓キーで深さを変える · ルーラーをクリックでその深さへ</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="bathy.js?v=3bbbae62"></script>
-<script src="config.js?v=0c3a5031"></script>
-<script src="../../engine/world.js?v=3a25a4b0"></script>
-<script src="../../engine/sea.js?v=2cd4d984"></script>
-<script src="../../engine/audio.js?v=48dd6a76"></script>
-<script src="../../engine/ui.js?v=80cfd807"></script>
-<script src="../../engine/species.js?v=19bade13"></script>
-<script src="../../engine/creatures.js?v=250dd97b"></script>
-<script src="../../engine/treasure.js?v=9a69f6cb"></script>
-<script src="../../engine/nav.js?v=655458de"></script>
+<script src="detail.js?v=7d6a3d80"></script>
+<script src="config.js?v=e7c180ec"></script>
+<script src="../../engine/world.js?v=acc1ebae"></script>
+<script src="../../engine/sea.js?v=5fdb6a4d"></script>
+<script src="../../engine/audio.js?v=95c4c559"></script>
+<script src="../../engine/ui.js?v=3701709f"></script>
+<script src="../../engine/post.js?v=3088a324"></script>
+<script src="../../engine/coast.js?v=309800b8"></script>
+<script src="../../engine/species.js?v=b2e901d9"></script>
+<script src="../../engine/creatures.js?v=d00438af"></script>
+<script src="../../engine/reef.js?v=5fc77f6e"></script>
+<script src="../../engine/pelagic.js?v=c6065659"></script>
+<script src="../../engine/zukan.js?v=6dd80c18"></script>
+<script src="../../engine/treasure.js?v=3fa4a636"></script>
+<script src="../../engine/nav.js?v=da0fcf67"></script>
 </body>
 </html>

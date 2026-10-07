@@ -36,16 +36,34 @@ const SWAY_GLSL = `
   }
   vec3 gpI = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   vGl = uGlint * pow(max(0.0, sin(uT * 1.3 + gpI.x * 0.9 + gpI.z * 0.7 + gpI.y * 0.5 + aPh * 0.03)), 24.0);`;
-function swayMat(opts, mode = 0, k = [], glint = 0) {
+// うろこ（uScale 1 = 魚）: 体の表面に、後ろへ重なるうろこの並びを、面の向きの凹凸と縁の陰で描く（形は変えない）。
+// 体長 1 あたり約 36 列。ひれ（体の中心の薄い面）には付けない。遠くで細かすぎるときは消す（ちらつかないように）
+const SCALE_GLSL = `
+  if (uScale > 0.5) {
+    vec2 sq = vec2(vLP.x * 36.0, vLP.y * 36.0);
+    sq.y += 0.5 * mod(floor(sq.x), 2.0);                                   // 1 列ごとに半分ずらす
+    vec2 sf = fract(sq) - vec2(1.0, 0.5);
+    float sr = length(sf * vec2(1.0, 1.15));                               // 前（頭の側）の列の下に、後ろへ重なる丸い縁
+    float onBody = smoothstep(0.004, 0.015, abs(vLP.z)), aa = 1.0 - smoothstep(0.3, 0.9, length(fwidth(sq)));
+    float sh = smoothstep(0.55, 1.0, sr) * onBody * aa;                    // うろこの縁（後ろの端）
+    vec2 dH = vec2(dFdx(sh), dFdy(sh)) * 0.25;
+    vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition), r1 = cross(sy, normal), r2 = cross(normal, sx);
+    float det = dot(sx, r1);
+    if (abs(det) > 1e-12) normal = normalize(abs(det) * normal - sign(det) * (dH.x * r1 + dH.y * r2));
+    diffuseColor.rgb *= 1.0 - 0.1 * sh;
+  }`;
+function swayMat(opts, mode = 0, k = [], glint = 0, scale = 0) {
   const m = new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.55, metalness: 0, vertexColors: true }, opts, { side: THREE.DoubleSide }));   // 裏も描く（表裏で別のシェーダーにならないように、すべてそろえる）
-  const U = { uMode: { value: mode }, uK1: { value: k[0] || 0 }, uK2: { value: k[1] || 0 }, uK3: { value: k[2] || 0 }, uGlint: { value: glint } };
+  m.extensions = { derivatives: true };
+  const U = { uMode: { value: mode }, uK1: { value: k[0] || 0 }, uK2: { value: k[1] || 0 }, uK3: { value: k[2] || 0 }, uGlint: { value: glint }, uScale: { value: scale } };
   m.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, U, { uT: TIME, uAirMode: AIR, uCamD: CAMD });
-    sh.vertexShader = 'uniform float uT, uMode, uK1, uK2, uK3, uGlint; attribute float aPh; varying float vGl, vAY;\n' + sh.vertexShader
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + SWAY_GLSL)
+    sh.vertexShader = 'uniform float uT, uMode, uK1, uK2, uK3, uGlint; attribute float aPh; varying float vGl, vAY; varying vec3 vLP;\n' + sh.vertexShader
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vLP = position;\n' + SWAY_GLSL)
       .replace('#include <project_vertex>', '#include <project_vertex>\n  vAY = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).y;');
-    sh.fragmentShader = 'uniform float uAirMode, uCamD; varying float vGl, vAY;\n' + sh.fragmentShader
+    sh.fragmentShader = 'uniform float uAirMode, uCamD, uScale; varying float vGl, vAY; varying vec3 vLP;\n' + sh.fragmentShader
       .replace('void main() {', 'void main() {\n  if (uAirMode > 0.5 && uCamD - vAY > 0.03) discard;   // 海面より上だけを描くときは、水の中の部分を捨てる')
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + SCALE_GLSL)
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += (diffuseColor.rgb * 0.6 + vec3(0.2, 0.22, 0.25)) * vGl * pow(abs(normal.z), 3.0) * 0.9;');   // 体の色を残したまま明るく光る（白く飛ばない）
   };
   m.customProgramCacheKey = () => 'reef_sway';
@@ -283,7 +301,7 @@ const FISH = [
       pat: (u, v) => mixc(mixc([0.9, 0.66, 0.42], [0.62, 0.36, 0.2], Math.max(0, v) * 1.2), [0.95, 0.85, 0.75], v < -0.5 ? 0.5 : 0),
       fin: (p, s) => p === 'anal' && s > 0.7 ? [0.12, 0.08, 0.06] : p === 'dorsal' && s > 0.75 ? [0.2, 0.12, 0.08] : [0.95, 0.72, 0.5] } },
   // ツマグロ: ひれの先が黒い、浅い礁のサメ
-  { kind: 'blacktip', name: 'ツマグロ', len: 1.3, n: [2, 3], R: 11, up: [0.8, 2.2], spd: 0.8, home: 'point', w: 0, maxN: 12,
+  { kind: 'blacktip', name: 'ツマグロ', len: 1.3, n: [2, 3], R: 11, up: [0.8, 2.2], spd: 0.8, home: 'point', w: 0, maxN: 12, shark: true,
     where: 'グアム北部のブルーアステール（浅い礁）',
     geo: { hgt: 0.17, wid: 0.15, mx: 0.42, snout: 1.5, top: 0.12, ped: 0.18, bigPecs: 0.24, tail: { len: 0.3, fork: 0.55, upper: 0.5 }, dorsal: [0.52, 0.66, 0.8, 1.5], dorsal2: [0.2, 0.25, 0.3], anal: [0.18, 0.26, 0.45], eye: [0.15, 0.17, 0.15],
       pat: (u, v) => (u > 0.7 && u < 0.79 && Math.abs(v) < 0.45 && Math.sin(u * 300) > 0.8) ? [0.4, 0.38, 0.33] : mixc([0.93, 0.92, 0.9], [0.55, 0.52, 0.45], (v + 0.35) / 0.5),   // えらあな 5 本
@@ -301,9 +319,10 @@ const FISH = [
       fin: (p, s) => p === 'tail' ? [1.0, 0.9, 0.55] : p === 'dorsal' ? mixc([0.18, 0.1, 0.06], [1.0, 0.55, 0.1], s) : [1.0, 0.55, 0.12] } }
 ];
 // 近く（潜水艇から 8m 以内）は細かい形、遠くは面の少ない形で描く（数百匹を軽く描くため）
-const FISH_NEAR = 8, fishMat = swayMat({ roughness: 0.32, metalness: 0.05 }, 1);
+const FISH_NEAR = 8, fishMat = swayMat({ roughness: 0.32, metalness: 0.05 }, 1, [], 0, 1);
 // 銀色の魚（ギンガメアジなど）: ときどき、きらっと光る
-const silverMat = swayMat({ roughness: 0.25, metalness: 0.25 }, 1, [], 1);
+const silverMat = swayMat({ roughness: 0.25, metalness: 0.25 }, 1, [], 1, 1);
+const sharkMat = swayMat({ roughness: 0.45, metalness: 0.05 }, 1);         // サメ: うろこは見えない（細かい楯鱗でざらざら）
 // エイの体（頭が +x、体長 1 = 胸びれの幅の約半分）: 背の面と腹の面を別に作り、胸びれの縁で合わせる（背と腹で色が違う）。
 //   half(u): 胸びれの広がり（u: 0 前 〜 1 後ろ）、sweep: 翼の先が後ろへ反る量、thick: 体の厚み、top / bottom(u, av): 背・腹の色（av: 0 中心 〜 1 翼の先）
 function rayBody({ half, sweep, thick, top, bottom }) {
@@ -341,7 +360,7 @@ function mantaGeo() {
 }
 const mantaMat = swayMat({ roughness: 0.5 }, 4, [1.1, 0.3, 1.0]);       // ゆっくり羽ばたく
 FISH.forEach(f => {
-  const max = f.maxN || (f.home === 'anemone' ? 520 : f.kind === 'jack' ? 200 : 400), mat = f.ray ? mantaMat : f.silver ? silverMat : fishMat;
+  const max = f.maxN || (f.home === 'anemone' ? 520 : f.kind === 'jack' ? 200 : 400), mat = f.ray ? mantaMat : f.shark ? sharkMat : f.silver ? silverMat : fishMat;
   f.mesh = instanced(f.ray ? mantaGeo() : fishGeo(f.geo, 1), mat, max);
   f.near = instanced(f.ray ? mantaGeo() : fishGeo(f.geo, 0), mat, Math.min(max, 80));
   f.max = max;
@@ -620,7 +639,7 @@ const BIG = [
 BIG.forEach(b => {
   const geo = b.ray ? rayGeo : fishGeo(b.geo, 0);
   const sw = b.ray ? [4, [1.8, 0.32, 1.2]] : b.sway;                   // エイは羽ばたく（羽の先ほど大きく上下に。前から後ろへ波が伝わる）
-  b.mesh = instanced(geo, swayMat({ roughness: 0.45 }, sw[0], sw[1]), 1);
+  b.mesh = instanced(geo, swayMat({ roughness: 0.45 }, sw[0], sw[1], 0, b.kind === 'napoleon' ? 1 : 0), 1);   // ナポレオンフィッシュには大きなうろこ
   b.next = 15 + Math.random() * 40; b.on = null;
 });
 let bigT = 0;

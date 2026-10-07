@@ -34,8 +34,8 @@ function renderAir() {
 }
 
 // 体の材質と、まとめて描く形（近景の世界に置き、海面より上の部分は renderAir でも描く）
-function mesh(geo, opts, mode, k, max, air = true, scale = 0) {      // mode, k: 揺れ方、scale: うろこ（reef.js の swayMat）
-  const m = K.instanced(geo, K.swayMat(opts, mode, k, 0, scale), max);
+function mesh(geo, opts, mode, k, max, air = true) {                 // mode, k: 揺れ方（reef.js の swayMat）
+  const m = K.instanced(geo, K.swayMat(opts, mode, k), max);
   m.castShadow = false;
   if (air) AIR_MESHES.push(m);
   return m;
@@ -133,7 +133,7 @@ function flyingGeo() {
   };
   return K.merge([body, wing(-1, 0.72, 0.62, 0.45, [0.45, 0.58, 0.78]), wing(1, 0.72, 0.62, 0.45, [0.45, 0.58, 0.78]), wing(-1, 0.42, 0.2, 0.2, [0.5, 0.6, 0.75]), wing(1, 0.42, 0.2, 0.2, [0.5, 0.6, 0.75])]);
 }
-const ff = { mesh: mesh(flyingGeo(), { roughness: 0.25, metalness: 0.3 }, 0, [], 30, true, 1), list: [], next: 6 };
+const ff = { mesh: mesh(flyingGeo(), { roughness: 0.25, metalness: 0.3 }, 0, [], 30), list: [], next: 6 };
 function flyingFrame(dt, t, px, pz, camD, floorHere, show, fwx, fwz) {
   ff.next -= dt;
   if (show && ff.next < 0 && camD < 6 && floorHere > 20 && ff.list.length < 20) {
@@ -203,7 +203,7 @@ const logs = { mesh: mesh(logGeo, { roughness: 0.95 }, 0, [], 6) };
 const mahiGeo = () => K.fishGeo({ hgt: 0.3, wid: 0.12, mx: 0.8, snout: 0.35, top: 0.45, ped: 0.06, tail: { len: 0.3, fork: 0.9, lobe: 0.6 }, dorsal: [0.15, 0.95, 0.22], anal: [0.15, 0.5, 0.15], eye: [0.85, 0.75, 0.3],
   pat: (u, v) => (Math.sin(u * 60) * Math.sin(v * 9) > 0.7 ? [0.25, 0.55, 0.95] : v > 0.3 ? [0.1, 0.5, 0.5] : v < -0.4 ? [1.0, 0.88, 0.35] : [0.6, 0.8, 0.25]),
   fin: (p, s) => p === 'dorsal' ? [0.15, 0.4, 0.75] : p === 'tail' ? [0.75, 0.75, 0.3] : [0.4, 0.6, 0.6] }, 0);
-const mahi = { mesh: mesh(mahiGeo(), { roughness: 0.3, metalness: 0.1 }, 1, [], 30, false, 1) };
+const mahi = { mesh: mesh(mahiGeo(), { roughness: 0.3, metalness: 0.1 }, 1, [], 30, false) };
 function flotFrame(dt, t, px, pz, camD, show) {
   let nl = 0, nm = 0;
   const flots = [];

@@ -2238,6 +2238,8 @@ function buildPlasticBag(size) {
   return { group: g, animate() {} };
 }
 
+// 追加の生き物（species2.js）が使う道具
+window.SPECIES_KIT = { skin, makeBody, makeFan, makeFoil, makeStrip, makeRays, makeTube, glowPoints, curve, canvasTex, sharedTex, surfPt, glassM };
 window.SPECIES = Object.assign(window.SPECIES || {}, {
   dumbo: buildDumbo, snailfish: buildSnailfish, amphipod: buildAmphipod,
   turtle: buildTurtle, lanternfish: buildLanternfishSchool, giantsquid: buildGiantSquid, spermwhale: buildSpermWhale,

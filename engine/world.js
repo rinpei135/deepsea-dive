@@ -191,12 +191,12 @@ const COAST_GLSL = `
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
   }
   float demAt(vec2 xz){ return bil16(uDem, coastUV(xz), uDemS) / 100.0; }                 // 陸地の高さ (m)。海は 0
-  // 浜の斜面の、水深の上限 (m)（coast.js が陸地の画像の B に入れる。30 = 1m、255 = 上限なし）
+  // 浜の斜面の、水深の上限 (m)（coast.js が陸地の画像の B に入れる。上限 = 120 × (B/254)²、255 = 上限なし）
   float beachCap(vec2 xz){
     vec2 n = uDemS, p = coastUV(xz) * n - 0.5, i = floor(p), f = p - i;
     float a = texture2D(uDem, (i + vec2(0.5, 0.5)) / n).b, b = texture2D(uDem, (i + vec2(1.5, 0.5)) / n).b, c = texture2D(uDem, (i + vec2(0.5, 1.5)) / n).b, d = texture2D(uDem, (i + vec2(1.5, 1.5)) / n).b;
-    float v = mix(mix(min(a, 0.9), min(b, 0.9), f.x), mix(min(c, 0.9), min(d, 0.9), f.x), f.y);   // 上限なし（255）は 0.9（約 7.6m）として混ぜる
-    return v > 0.89 || v < 0.02 ? 1e4 : v * 8.5;                          // 0 は計算前（上限なし）
+    float v = mix(mix(a, b, f.x), mix(c, d, f.x), f.y) * 255.0 / 254.0;    // 上限なし（255）は約 121m として混ぜる（なめらかにつながる）
+    return v > 0.999 || v < 0.02 ? 1e4 : 120.0 * v * v;                   // 0 は計算前（上限なし）
   }
   float gmAt(vec2 xz){ return bil16(uGm, vec2(xz.x * uGmM.x + uGmM.y, xz.y * uGmM.z + uGmM.w), uGmS) / 10.0 - 3000.0; }   // 約120m 格子の高さ (m)
   // 島の近くの高さ (m): 陸は細かい陸地の高さ、海は約 120m 格子の海底（細かい陸地で海になった所は、少なくとも 0.4m の浅瀬）

@@ -81,8 +81,11 @@ function waterFromSat() {
 }
 // 浜の斜面: 地形のデータ（約 120m）では、浜から数十 m で急に深くなっていて、浜の斜面がない（波打ち際の寄せ返しや、崩れる波の帯が見えない）。
 // 陸からの距離と、いちばん近い陸の高さを求め、近くの陸が低い（8m 未満 = 砂浜や礁原。崖はふつう 20m 以上）所だけ、水深に「岸からなだらかに深くなる」上限を付ける
-// （0.3m + 距離 × 0.05。20m で約 1.3m、100m で約 5m）。崖の海岸はそのまま。上限は陸地の画像の B（30 = 1m、255 = 上限なし）に入れる
-const BEACH_SLOPE = 0.05, BEACH_R = 160;
+// （0.3m + 距離 × 0.05。20m で約 1.3m、100m で約 5m）。80m より先は上限をだんだん速く深くし、沖の本当の水深になめらかにつなぐ
+// （上限が途中で急に無くなると、そこで水深が数 m から数十 m へ跳び、浅瀬の水色と深い青の境目がくっきりした線になるため。160m で約 34m、260m で約 143m）。
+// 崖の海岸はそのまま。上限は陸地の画像の B に入れる（上限 m = 120 × (B/254)²、255 = 上限なし）
+const BEACH_SLOPE = 0.05, BEACH_R = 260;
+const beachCapAt = d => 0.3 + d * BEACH_SLOPE + Math.max(0, d - 80) ** 2 * 0.004;
 let capArr = null;
 function buildBeachCap() {
   const { W, H, hgt, im } = demData, N = W * H, d = im.data;
@@ -103,7 +106,7 @@ function buildBeachCap() {
   capArr = new Float32Array(N).fill(1e9);
   for (let i = 0; i < N; i++) {
     let b = 255;
-    if (dist[i] > 0 && dist[i] < BEACH_R && src[i] < 800) { const cap = 0.3 + dist[i] * BEACH_SLOPE; capArr[i] = cap; b = Math.min(254, Math.round(cap * 30)); }
+    if (dist[i] > 0 && dist[i] < BEACH_R && src[i] < 800) { const cap = Math.min(120, beachCapAt(dist[i])); capArr[i] = cap; b = Math.min(254, Math.round(Math.sqrt(cap / 120) * 254)); }
     d[i * 4 + 2] = b;
   }
   T.land.cap = (lat, lon) => {                                          // JS 側（移動や海底の深さ）でも同じ上限を使う

@@ -341,6 +341,7 @@ function mantaGeo() {
 }
 const mantaMat = swayMat({ roughness: 0.5 }, 4, [1.1, 0.3, 1.0]);       // ゆっくり羽ばたく
 FISH.forEach(f => {
+  if (f.ray && window.SPECIES && window.SPECIES.reefManta) f.bodies = [];   // マンタは 1 匹ずつ、細かく作った体で（下の「マンタの体」）
   const max = f.maxN || (f.home === 'anemone' ? 520 : f.kind === 'jack' ? 200 : 400), mat = f.ray ? mantaMat : f.silver ? silverMat : fishMat;
   f.mesh = instanced(f.ray ? mantaGeo() : fishGeo(f.geo, 1), mat, max);
   f.near = instanced(f.ray ? mantaGeo() : fishGeo(f.geo, 0), mat, Math.min(max, 80));
@@ -597,15 +598,15 @@ const rayGeo = (() => {
   return merge(parts);
 })();
 const BIG = [
-  { kind: 'whitetip', name: 'ネムリブカ', sci: 'Triaenodon obesus', len: 1.5, spd: 0.7, up: 1.0, every: [60, 120],
+  { kind: 'whitetip', name: 'ネムリブカ', sci: 'Triaenodon obesus', len: 1.5, spd: 0.7, up: 1.0, every: [60, 120], build: 'reefWhitetip', size: 1.5,
     note: '昼は岩陰や洞窟の砂の上でじっと休み、夜になると礁を泳ぎ回って、岩の割れ目の魚を狩る。背びれと尾の先が白い。おとなしく、人を襲うことはほとんどない。',
     sway: [3, [2.5, 0.08]],                                            // ゆっくり泳ぐ（速さ・振れ幅）
     geo: { hgt: 0.17, wid: 0.15, mx: 0.42, snout: 1.6, top: 0.12, ped: 0.18, bigPecs: 0.24, tail: { len: 0.3, fork: 0.55, upper: 0.5 }, dorsal: [0.52, 0.66, 0.8, 1.5], dorsal2: [0.2, 0.26, 0.4, 1.3], anal: [0.18, 0.26, 0.45], eye: [0.15, 0.17, 0.15],
       pat: (u, v) => (u > 0.7 && u < 0.79 && Math.abs(v) < 0.45 && Math.sin(u * 300) > 0.8) ? [0.3, 0.32, 0.34] : mixc([0.92, 0.92, 0.9], [0.42, 0.45, 0.48], (v + 0.35) / 0.5),   // えらあな 5 本
       fin: (p, s) => (p === 'dorsal' || p === 'tail') && s > 0.75 ? [0.95, 0.96, 0.96] : [0.38, 0.4, 0.43] } },
-  { kind: 'eagleray', name: 'マダラトビエイ', sci: 'Aetobatus narinari', len: 1.0, spd: 0.9, up: 3.0, every: [70, 140], ray: true,
+  { kind: 'eagleray', name: 'マダラトビエイ', sci: 'Aetobatus narinari', len: 1.0, spd: 0.9, up: 3.0, every: [70, 140], ray: true, build: 'eagleRay', size: 2.1,
     note: '翼を広げると 2m を超える大きなエイ。鳥のように羽ばたいて泳ぎ、砂の中の貝を硬い歯で割って食べる。背中の白い水玉模様が目印。' },
-  { kind: 'napoleon', name: 'メガネモチノウオ（ナポレオンフィッシュ）', sci: 'Cheilinus undulatus', len: 1.3, spd: 0.4, up: 1.5, every: [80, 150], curious: true,
+  { kind: 'napoleon', name: 'メガネモチノウオ（ナポレオンフィッシュ）', sci: 'Cheilinus undulatus', len: 1.3, spd: 0.4, up: 1.5, every: [80, 150], curious: true, build: 'napoleon', size: 1.3,
     note: '体長 2m にもなる大きなベラ。おでこがこぶのように盛り上がり、目の後ろに 2 本の黒い線がある。好奇心が強く、ダイバーに近づいてくることもある。数が減り、守られている。',
     sway: [3, [1.6, 0.06]],
     geo: { hgt: 0.38, wid: 0.2, mx: 0.5, snout: 0.7, top: 0.4, tail: { len: 0.22, fork: 0.0, round: 0.5 }, dorsal: [0.15, 0.7, 0.14], anal: [0.15, 0.4, 0.16], eye: [0.85, 0.7, 0.3],
@@ -617,7 +618,12 @@ const BIG = [
       },
       fin: (p, s) => mixc([0.2, 0.45, 0.45], [0.55, 0.75, 0.6], s) } }
 ];
+// 細かく作った体（engine/species2.js）: +z が前。あれば、簡単な形の代わりに使う。シーンに入れておき（見えなくして）、潜航の始めに材質を準備させる
+const SP = window.SPECIES || {}, ROT_Z2X = new THREE.Quaternion().setFromAxisAngle(UP, Math.PI / 2);   // +z 前 → +x 前（このファイルの魚の向き）
+function makeBody(name, size) { const b = SP[name](size); withCaustics(b.group); b.group.visible = false; scene.add(b.group); return b; }
 BIG.forEach(b => {
+  b.next = 15 + Math.random() * 40; b.on = null;
+  if (b.build && SP[b.build]) { b.body = makeBody(b.build, b.size); b.mesh = b.body.group; return; }
   const geo = b.ray ? rayGeo : fishGeo(b.geo, 0);
   const sw = b.ray ? [4, [1.8, 0.32, 1.2]] : b.sway;                   // エイは羽ばたく（羽の先ほど大きく上下に。前から後ろへ波が伝わる）
   b.mesh = instanced(geo, swayMat({ roughness: 0.45 }, sw[0], sw[1]), 1);
@@ -652,6 +658,11 @@ function bigFrame(dt, t, px, pz, depth, subD) {
     const td = Math.max(1, seabedY(o.x, o.z) - b.up); o.d += (td - o.d) * Math.min(1, dt * 0.5);
     if (Math.hypot(o.x - px, o.z - pz) > 80 || (o.leg && Math.hypot(o.ex - o.x, o.ez - o.z) < 3)) { b.on = null; b.next = bigT + b.every[0] + Math.random() * (b.every[1] - b.every[0]); m.visible = false; continue; }
     P.set(o.x - px, depth - o.d, o.z - pz);
+    if (b.body) {                                                      // 細かく作った体: 向きを変えて、泳ぐ動きを進める
+      const g = b.body.group; g.position.copy(P); g.rotation.set(0, Math.atan2(o.hx, o.hz), b.ray ? Math.sin(t * 0.5) * 0.12 : 0, 'YXZ'); g.visible = true;
+      b.body.animate(t, sp / b.spd);
+      continue;
+    }
     Q.setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(o.hx / hl, 0, o.hz / hl));
     if (b.ray) Q.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.sin(t * 0.5) * 0.12));   // ゆっくり傾く
     SC.setScalar(b.len); M.compose(P, Q, SC);
@@ -670,7 +681,7 @@ function frame(dt, t, px, pz, depth, show) {
   const vis = show;
   Object.values(BOTTOM).forEach(b => { b.mesh.visible = vis && b.n > 0; b.mesh.position.set(origin[0] - px, depth, origin[1] - pz); });
   FISH.forEach(f => { f.cnt = 0; f.ncnt = 0; });
-  if (!vis) { FISH.forEach(f => { f.mesh.visible = f.near.visible = false; }); return; }
+  if (!vis) { FISH.forEach(f => { f.mesh.visible = f.near.visible = false; if (f.bodies) f.bodies.forEach(b => { b.group.visible = false; }); }); return; }
   dt = Math.min(dt, 0.1);
   const subD = Math.max(0, depth);                                     // 潜水艇の深さ（海面の上なら 0）
   // 寄ってくる群れを選ぶ（同時に 2 つまで）
@@ -757,15 +768,27 @@ function frame(dt, t, px, pz, depth, show) {
       Q.setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(q.hx / hl, q.hy * 0.5, q.hz / hl).normalize());
       SC.setScalar(q.s); M.compose(P, Q, SC);
       C.setScalar(q.tint);
+      if (f.bodies) { mantaBody(f, f.cnt++, q, t); continue; }
       if (e < FISH_NEAR && f.ncnt < f.near.instanceMatrix.count) { f.near.setMatrixAt(f.ncnt, M); f.near.setColorAt(f.ncnt, C); f.ncnt++; }
       else { f.mesh.setMatrixAt(f.cnt, M); f.mesh.setColorAt(f.cnt, C); f.cnt++; }
     }
   });
   bigFrame(dt, t, px, pz, depth, subD);
   checkMeet(dt, px, pz, depth);
-  FISH.forEach(f => [[f.mesh, f.cnt], [f.near, f.ncnt]].forEach(([m, n]) => { m.count = n; m.visible = n > 0; if (n) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; } }));
+  FISH.forEach(f => {
+    if (f.bodies) { f.bodies.forEach((b, i) => { b.group.visible = i < f.cnt; }); f.mesh.visible = f.near.visible = false; return; }
+    [[f.mesh, f.cnt], [f.near, f.ncnt]].forEach(([m, n]) => { m.count = n; m.visible = n > 0; if (n) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; } });
+  });
 }
-function hide() { Object.values(BOTTOM).forEach(b => { b.mesh.visible = false; }); FISH.forEach(f => { f.mesh.visible = f.near.visible = false; }); BIG.forEach(b => { b.mesh.visible = false; b.on = null; }); }
+// マンタの体: 足りなければ作る（最初の 1 匹は、材質の準備のために始めから作っておく）。翼の幅は体長の約 2.3 倍
+function mantaBody(f, i, q, t) {
+  const b = f.bodies[i] || (f.bodies[i] = makeBody('reefManta', 1)), g = b.group;
+  g.position.copy(P); g.quaternion.copy(Q).multiply(ROT_Z2X); g.scale.setScalar(q.s * 2.3); g.visible = true;
+  b.animate(t + q.ph, 1);
+}
+FISH.forEach(f => { if (f.bodies) mantaBody(f, 0, { s: 1, ph: 0 }, 0); });
+FISH.forEach(f => { if (f.bodies) f.bodies[0].group.visible = false; });
+function hide() { Object.values(BOTTOM).forEach(b => { b.mesh.visible = false; }); FISH.forEach(f => { f.mesh.visible = f.near.visible = false; if (f.bodies) f.bodies.forEach(b => { b.group.visible = false; }); }); BIG.forEach(b => { b.mesh.visible = false; b.on = null; }); }
 
 // ---------- 図鑑 ----------
 // サンゴ礁の生き物も、出会うと図鑑に登録される（潜って、4m 以内で正面に見たとき）。図鑑の絵は、その場で形を作って撮る
@@ -776,6 +799,11 @@ const thumbMesh = (geo, col, rotY = 1.07, rotX = 0) => () => {        // rotX: �
   return { group: g, animate() {} };
 };
 const D = (kind, name, sci, from, to, where, note, make) => ({ kind: 'reef_' + kind, name, sci, from, to, where, note, make, reef: true });
+const thumbBody = (name, size, ray) => () => {                         // 細かく作った体（species2.js）の図鑑の絵
+  const body = SP[name](size), g = new THREE.Group(); g.add(body.group);
+  if (ray) g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0.35, 0.55).normalize().lerp(new THREE.Vector3(0, 1, 0), 0.25).normalize());
+  return { group: g, animate: (t, s) => body.animate(t, s) };
+};
 const FISH_INFO = {
   chromis: ['Chromis viridis', 'デバスズメダイ', '枝サンゴの上に群れる、青緑色の小さな魚。危ないと感じると、群れごと枝のすき間へ逃げ込む。'],
   anthias: ['Pseudanthias squamipinnis', 'キンギョハナダイ', '礁の斜面に何百匹も群れて、流れてくるプランクトンを食べる。群れの多くは雌で、1 匹の雄が死ぬと雌の 1 匹が雄に変わる。'],
@@ -799,7 +827,7 @@ const FISH_INFO = {
 const REEF_SPECIES = [];
 FISH.forEach(f => {
   const [sci, name, note] = FISH_INFO[f.kind];
-  f.def = D(f.kind, name, sci, 1, 40, f.where ? f.where : f.home === 'anemone' ? '浅いサンゴ礁の、イソギンチャクのまわり' : f.home === 'station' ? '浅いサンゴ礁の、大きなサンゴのそば（掃除場）' : f.home === 'open' ? '礁の外側（水深 8〜30m）の中層' : '浅いサンゴ礁（水深 40m より浅い所）', note, thumbMesh(() => f.ray ? mantaGeo() : fishGeo(f.geo, 0), 0xffffff, f.ray ? 0.4 : 1.07, f.ray ? 1 : 0));
+  f.def = D(f.kind, name, sci, 1, 40, f.where ? f.where : f.home === 'anemone' ? '浅いサンゴ礁の、イソギンチャクのまわり' : f.home === 'station' ? '浅いサンゴ礁の、大きなサンゴのそば（掃除場）' : f.home === 'open' ? '礁の外側（水深 8〜30m）の中層' : '浅いサンゴ礁（水深 40m より浅い所）', note, f.bodies ? thumbBody('reefManta', 4, true) : thumbMesh(() => f.ray ? mantaGeo() : fishGeo(f.geo, 0), 0xffffff, f.ray ? 0.4 : 1.07, f.ray ? 1 : 0));
   REEF_SPECIES.push(f.def);
 });
 const BOTTOM_INFO = {
@@ -817,7 +845,7 @@ Object.entries(BOTTOM_INFO).forEach(([k, [name, sci, where, note]]) => {
   REEF_SPECIES.push(b.def);
 });
 BIG.forEach(b => {
-  b.def = D(b.kind, b.name, b.sci, 1, 40, '浅いサンゴ礁（ときどき通り過ぎる）', b.note, thumbMesh(() => b.ray ? rayGeo.clone() : fishGeo(b.geo, 0), 0xffffff, b.ray ? 0.4 : 1.07, b.ray ? 1 : 0));
+  b.def = D(b.kind, b.name, b.sci, 1, 40, '浅いサンゴ礁（ときどき通り過ぎる）', b.note, b.body ? thumbBody(b.build, b.size, b.ray) : thumbMesh(() => b.ray ? rayGeo.clone() : fishGeo(b.geo, 0), 0xffffff, b.ray ? 0.4 : 1.07, b.ray ? 1 : 0));
   b.def.rare = true; REEF_SPECIES.push(b.def);
 });
 const CG = A.coralGeos, CC = A.CORAL_COLS;

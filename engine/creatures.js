@@ -685,6 +685,17 @@ function mergeParts(list) {
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   return g;
 }
+// 模様の画像（canvas）の色を読む（遠くの簡単な形に、体の模様の色を写すため）。画像ごとに 1 度だけ縮めて読む
+const TEX_PIX = new WeakMap();
+function texPixels(t) {
+  if (TEX_PIX.has(t)) return TEX_PIX.get(t);
+  let r = null; const im = t.image;
+  if (im && im.width && im.height) {
+    const W = Math.min(128, im.width), H = Math.min(128, im.height), c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x = c.getContext('2d'); x.drawImage(im, 0, 0, W, H); r = { W, H, d: x.getImageData(0, 0, W, H).data };
+  }
+  TEX_PIX.set(t, r); return r;
+}
 function farFor(def) {
   if (FAR[def.kind] !== undefined) return FAR[def.kind];
   const b = BUILDERS[def.kind];
@@ -699,9 +710,20 @@ function farFor(def) {
     let geo = o.geometry.clone(); if (!geo.attributes.normal) geo.computeVertexNormals();
     if (geo.index) geo = geo.toNonIndexed();
     geo.applyMatrix4(o.matrixWorld);
-    const base = m.color ? m.color.clone() : new THREE.Color(1, 1, 1); if (m.map) base.multiplyScalar(0.8);
+    const base = m.color ? m.color.clone() : new THREE.Color(1, 1, 1);
     const n = geo.attributes.position.count, col = new Float32Array(n * 3), vc = m.vertexColors && geo.attributes.color;
-    for (let i = 0; i < n; i++) { col[i * 3] = base.r * (vc ? vc.getX(i) : 1); col[i * 3 + 1] = base.g * (vc ? vc.getY(i) : 1); col[i * 3 + 2] = base.b * (vc ? vc.getZ(i) : 1); }
+    // 模様の画像があれば、頂点ごとに、その位置の模様の色を写す（ないと白い体になってしまう）
+    const px = m.map && geo.attributes.uv ? texPixels(m.map) : null, uv = px && geo.attributes.uv, wrapU = px && m.map.wrapS === THREE.RepeatWrapping, wrapV = px && m.map.wrapT === THREE.RepeatWrapping;
+    if (m.map && !px) base.multiplyScalar(0.8);
+    for (let i = 0; i < n; i++) {
+      let tr = 1, tg = 1, tb = 1;
+      if (px) {
+        let u = uv.getX(i), v = uv.getY(i); u = wrapU ? u - Math.floor(u) : Math.min(1, Math.max(0, u)); v = wrapV ? v - Math.floor(v) : Math.min(1, Math.max(0, v));
+        const k = ((Math.min(px.H - 1, Math.floor((m.map.flipY ? 1 - v : v) * px.H)) * px.W) + Math.min(px.W - 1, Math.floor(u * px.W))) * 4;
+        tr = px.d[k] / 255; tg = px.d[k + 1] / 255; tb = px.d[k + 2] / 255;
+      }
+      col[i * 3] = base.r * tr * (vc ? vc.getX(i) : 1); col[i * 3 + 1] = base.g * tg * (vc ? vc.getY(i) : 1); col[i * 3 + 2] = base.b * tb * (vc ? vc.getZ(i) : 1);
+    }
     (clear ? parts.clear : parts.solid).push({ geo, col });
     if (clear) { opSum += m.opacity; opN++; }
   });

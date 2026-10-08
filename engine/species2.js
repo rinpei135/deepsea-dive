@@ -326,44 +326,103 @@ function buildMola(size) {
 }
 
 // ---------- カツオ（Katsuwonus pelamis）の群れ ----------
-// 体長 50〜80cm。紡錘形の体で、背は濃い青紫、腹は銀白色。腹側に 4〜6 本の黒い縦じま（カツオの目印）。
-// 体はほとんど曲げず、三日月形の尾びれを速く振って泳ぐ（マグロ類の泳ぎ方）。尾の付け根の上下に小離鰭が並ぶ
+// 体長 50〜80cm。断面がほぼ円い紡錘形で、頭は円錐形にとがる。背は濃い青紫で、わき腹へ鋼のような青、銀白色へ移る。
+// 腹側のわき腹に 4〜6 本の黒っぽい縦じま（カツオの目印。背にはしまがない）。うろこは胸のまわり（胸甲）と側線だけで、肌はなめらかで金属のようなつや。
+// 第 1 背びれ（とげ）は前が高く後ろへ低くなり、すぐ後ろに小さな第 2 背びれとしりびれ。その後ろに小離鰭が背に 8 個、腹に 7 個。
+// 尾の付け根はとても細く、左右に大きな隆起（キール）。尾びれは硬く細長い三日月形。体はほとんど曲げず、尾だけを速く振って泳ぐ（マグロ類の泳ぎ方）。
+// 群れはそろって同じ向きに泳ぎ、ときどき向きを変える波が群れを伝わって、わき腹が銀色にきらめく
 function buildSkipjackSchool(size) {
   const g = new THREE.Group(), N = 32;
-  const W = curve([0, 0.05, 0.3, 0.55, 0.8, 0.95, 1], [0.01, 0.06, 0.105, 0.09, 0.04, 0.015, 0.012]);
-  const H = curve([0, 0.05, 0.3, 0.55, 0.8, 0.95, 1], [0.01, 0.066, 0.13, 0.11, 0.045, 0.016, 0.013]);
-  const map = tex('skipjack', 256, 256, (x, Wd, Ht) => {
-    countershade(x, Wd, Ht, '#1c1f4a', '#6a7aa0', '#eef1f2', 0.08);
-    x.strokeStyle = 'rgba(30,34,50,.75)'; x.lineWidth = 2.5;          // 腹の縦じま
-    for (const u of [0.6, 0.64, 0.68, 0.82, 0.86, 0.9]) { x.beginPath(); x.moveTo(u * Wd, 0.25 * Ht); x.bezierCurveTo(u * Wd + 2, 0.5 * Ht, u * Wd - 2, 0.7 * Ht, (u + (u < 0.75 ? 0.04 : -0.04)) * Wd, 0.88 * Ht); x.stroke(); }
+  const W = curve([0, 0.04, 0.15, 0.34, 0.6, 0.82, 0.93, 1], [0.008, 0.045, 0.088, 0.104, 0.082, 0.034, 0.012, 0.011]);
+  const H = curve([0, 0.04, 0.15, 0.34, 0.6, 0.82, 0.93, 1], [0.008, 0.05, 0.1, 0.122, 0.094, 0.038, 0.014, 0.013]);
+  const map = tex('skipjack2', 1024, 512, (x, Wd, Ht) => {
+    // 背（u 0.25）は濃い青紫 → 鋼の青 → 銀 → 腹（u 0.75）は白
+    const gr = x.createLinearGradient(0, 0, Wd, 0);
+    [[0, '#aab4c4'], [0.09, '#4a5a86'], [0.17, '#1e2052'], [0.25, '#16173f'], [0.33, '#1e2052'], [0.41, '#4a5a86'], [0.5, '#aab4c4'], [0.6, '#dfe4ea'], [0.75, '#f4f5f6'], [0.9, '#dfe4ea'], [1, '#aab4c4']].forEach(([o, c]) => gr.addColorStop(o, c));
+    x.fillStyle = gr; x.fillRect(0, 0, Wd, Ht);
+    mottle(x, Wd, Ht, 70, 10, 30, 'rgba(70,60,140,.22)', 0.05, 0.9, [0.14, 0.36]);   // 背の紫がかったつや
+    mottle(x, Wd, Ht, 60, 8, 24, 'rgba(150,175,215,.18)', 0.1, 0.9, [0.03, 0.12]);
+    mottle(x, Wd, Ht, 60, 8, 24, 'rgba(150,175,215,.18)', 0.1, 0.9, [0.38, 0.47]);
+    // 腹側の縦じま（左右に 5 本ずつ。胸びれの後ろから尾の手前まで。尾へ向かって寄り合い、ぼかす）
+    x.lineCap = 'round'; x.filter = 'blur(3px)';
+    for (const [uTop, dir] of [[0.5, 1], [1.0, -1]]) for (let k = 0; k < 5; k++) {
+      const u0 = uTop + dir * (0.035 + k * 0.03), u1 = uTop + dir * (0.05 + k * 0.022), ww = 20 - k * 2;
+      x.strokeStyle = `rgba(30,34,56,${0.62 - k * 0.05})`; x.lineWidth = ww;
+      x.beginPath(); x.moveTo(u0 * Wd, (0.24 + k * 0.012) * Ht); x.bezierCurveTo(u0 * Wd, 0.45 * Ht, u1 * Wd + dir * 4, 0.65 * Ht, u1 * Wd, (0.84 - k * 0.025) * Ht); x.stroke();
+    }
+    x.filter = 'none';
+    // えらぶたの縁（目の後ろの弓なりの線）と、胸甲（胸のまわりの、うろこのあるやや明るい所）
+    x.strokeStyle = 'rgba(40,48,80,.5)'; x.lineWidth = 2.5;
+    for (const um of [0.02, 0.48]) { x.beginPath(); x.moveTo((um - 0.07) * Wd, 0.17 * Ht); x.quadraticCurveTo(um * Wd, 0.19 * Ht, (um + 0.07) * Wd, 0.17 * Ht); x.stroke(); }
+    for (const um of [0.02, 0.48]) { const gc = x.createRadialGradient(um * Wd, 0.27 * Ht, 4, um * Wd, 0.27 * Ht, 60); gc.addColorStop(0, 'rgba(200,210,225,.22)'); gc.addColorStop(1, 'rgba(200,210,225,0)'); x.fillStyle = gc; x.fillRect(um * Wd - 60, 0.27 * Ht - 60, 120, 120); }
+    // 口の線（吻の先から目の下へ）
+    x.strokeStyle = 'rgba(25,28,45,.7)'; x.lineWidth = 2;
+    for (const um of [0.97, 0.53]) { x.beginPath(); x.moveTo(0.75 * Wd, 0.005 * Ht); x.lineTo(um * Wd, 0.07 * Ht); x.stroke(); }
   });
-  const bodyMat = new THREE.MeshPhysicalMaterial({ map, metalness: 0.5, roughness: 0.28, clearcoat: 0.9 });
-  const fm = finMat(0.9), dark = [0.12, 0.13, 0.28];
+  const bodyMat = new THREE.MeshPhysicalMaterial({ map, metalness: 0.5, roughness: 0.26, clearcoat: 0.9 });
+  const fm = finMat(1, 0.35);
+  const dark = [0.1, 0.11, 0.24], gray = [0.32, 0.34, 0.42];
   const center = (s, out) => out.set(0, 0, 0.5 - s);
-  const hull = makeBody(28, 16, bodyMat); hull.userData.update(center, W, H);
-  const strip = (s0, s1, up, n, h, c0, c1) => { const m = colorStrip(makeStrip(n, fm), n, c0, c1), b = [], tp = []; for (let k = 0; k < n; k++) { const u = k / (n - 1), s = s0 + (s1 - s0) * u; b.push(new THREE.Vector3(0, up * H(s) * 0.85, 0.5 - s)); tp.push(new THREE.Vector3(0, up * (H(s) * 0.85 + h(u)), 0.5 - s - 0.3 * h(u))); } m.userData.update(b, tp); return m.geometry; };
-  const finGeos = [strip(0.28, 0.45, 1, 7, u => 0.065 * Math.pow(1 - u, 0.6), dark, dark), strip(0.5, 0.57, 1, 4, u => 0.05 * Math.sin(Math.PI * u), dark, dark), strip(0.55, 0.6, -1, 4, u => 0.04 * Math.sin(Math.PI * u), [0.8, 0.82, 0.85], [0.7, 0.72, 0.75])];
-  for (let k = 0; k < 7; k++) { const s = 0.64 + k * 0.042; finGeos.push(strip(s, s + 0.02, 1, 2, () => 0.018, dark, [0.7, 0.62, 0.3]), strip(s, s + 0.02, -1, 2, () => 0.016, dark, [0.7, 0.62, 0.3])); }   // 小離鰭
-  const tailGeo = colorFoil(makeFoil({ span: 0.18, both: true, le: a => -0.01 - 0.11 * Math.pow(a, 1.4), te: a => -0.01 - 0.11 * Math.pow(a, 1.4) - 0.045 * (1 - a) - 0.01, th: a => 0.01 * (1 - a) + 0.002 }), 0.18, () => dark);
-  const pecGeo = colorFoil(makeFoil({ span: 0.09, le: a => -0.02 * a, te: a => -0.02 * a - 0.03 * (1 - a) - 0.006, th: () => 0.006 }), 0.09, () => dark);
-  const em = eyeM();
+  const hull = makeBody(40, 22, bodyMat); hull.userData.update(center, W, H);
+  // ひれ・小離鰭・隆起・目は、1 匹ぶんを 1 つの形にまとめる（32 匹ぶん描くので、部品の数を減らす）
+  const parts = [];
+  const add = (geo, m4) => { if (geo.index) geo = geo.toNonIndexed(); if (m4) geo.applyMatrix4(m4); geo.computeVertexNormals(); parts.push(geo); };
+  const strip = (s0, s1, up, n, h, c0, c1, back = 0.3, side = 0) => {
+    const m = colorStrip(makeStrip(n, fm), n, c0, c1), bs = [], tp = [];
+    for (let k = 0; k < n; k++) {
+      const u = k / (n - 1), s = s0 + (s1 - s0) * u;
+      if (side) { bs.push(new THREE.Vector3(side * W(s) * 0.85, 0, 0.5 - s)); tp.push(new THREE.Vector3(side * (W(s) * 0.85 + h(u)), 0, 0.5 - s - back * h(u))); }
+      else { bs.push(new THREE.Vector3(0, up * H(s) * 0.85, 0.5 - s)); tp.push(new THREE.Vector3(0, up * (H(s) * 0.85 + h(u)), 0.5 - s - back * h(u))); }
+    }
+    m.userData.update(bs, tp); add(m.geometry);
+  };
+  strip(0.27, 0.47, 1, 12, u => 0.075 * Math.pow(1 - u, 1.4) + 0.004, dark, gray, 0.25);         // 第 1 背びれ（前が高く、後ろへ低く）
+  strip(0.5, 0.56, 1, 5, u => 0.045 * Math.sin(Math.PI * Math.min(1, u * 1.1)), dark, gray, 0.6);  // 第 2 背びれ
+  strip(0.54, 0.6, -1, 5, u => 0.04 * Math.sin(Math.PI * Math.min(1, u * 1.1)), [0.55, 0.57, 0.63], gray, 0.6);   // しりびれ
+  for (let k = 0; k < 8; k++) { const s = 0.6 + k * 0.033; strip(s, s + 0.018, 1, 2, u => 0.016 - 0.008 * u, dark, gray, 0.8); }   // 背の小離鰭
+  for (let k = 0; k < 7; k++) { const s = 0.63 + k * 0.033; strip(s, s + 0.018, -1, 2, u => 0.014 - 0.007 * u, gray, gray, 0.8); }   // 腹の小離鰭
+  [1, -1].forEach(sd => { strip(0.86, 0.98, 0, 6, u => 0.016 * Math.sin(Math.PI * u), dark, dark, 0.2, sd); strip(0.985, 1.02, 0, 3, u => 0.006 * Math.sin(Math.PI * u), dark, dark, 0.2, sd); });   // 尾の付け根の隆起（大 1・小 1）
+  const pecGeo = colorFoil(makeFoil({ span: 0.075, le: a => -0.015 * a, te: a => -0.015 * a - 0.035 * (1 - 0.7 * a) - 0.005, th: () => 0.006 }), 0.075, a => mix3(dark, gray, a));
+  const pelGeo = colorFoil(makeFoil({ span: 0.035, le: a => -0.01 * a, te: a => -0.01 * a - 0.03 * (1 - 0.6 * a) - 0.004, th: () => 0.004 }), 0.035, a => mix3(gray, [0.5, 0.52, 0.58], a));
+  const M4 = new THREE.Matrix4(), E = new THREE.Euler(), Sv = new THREE.Vector3(), Qt = new THREE.Quaternion();
+  [1, -1].forEach(sd => {
+    Sv.set(sd, 1, 1); Qt.setFromEuler(E.set(0.15, sd * -0.95, sd * -0.25, 'YXZ')); add(pecGeo.clone(), M4.compose(new THREE.Vector3(sd * W(0.25) * 0.85, -0.012, 0.25), Qt, Sv));   // 胸びれ（短い）
+    Qt.setFromEuler(E.set(0.1, sd * -1.1, sd * -1.1, 'YXZ')); add(pelGeo.clone(), M4.compose(new THREE.Vector3(sd * 0.02, -H(0.28) * 0.9, 0.22), Qt, Sv));   // 腹びれ
+    // 目: 黒い瞳と、まわりの銀色がかった輪（頂点の色で）
+    const eg = new THREE.SphereGeometry(0.017, 14, 10), ep = eg.attributes.position, ec = new Float32Array(ep.count * 3);
+    for (let i = 0; i < ep.count; i++) { const r = Math.hypot(ep.getY(i), ep.getZ(i)) / 0.017, c = ep.getX(i) > 0 && r < 0.55 ? [0.02, 0.02, 0.03] : r < 0.8 ? [0.55, 0.52, 0.42] : [0.3, 0.32, 0.38]; ec.set(c, i * 3); }
+    eg.setAttribute('color', new THREE.BufferAttribute(ec, 3)); eg.scale(0.55, 1, 1); if (sd < 0) eg.rotateY(Math.PI);
+    add(eg, M4.makeTranslation(sd * W(0.07) * 0.92, 0.012, 0.43));
+  });
+  const finGeo = (() => {                                              // まとめる（位置・向き・色）
+    let n = 0; parts.forEach(q => n += q.attributes.position.count);
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3); let o = 0;
+    parts.forEach(q => { const c = q.attributes.position.count; pos.set(q.attributes.position.array, o * 3); nor.set(q.attributes.normal.array, o * 3); col.set(q.attributes.color ? q.attributes.color.array : new Float32Array(c * 3).fill(0.3), o * 3); o += c; q.dispose(); });
+    const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); gg.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); gg.setAttribute('color', new THREE.BufferAttribute(col, 3)); return gg;
+  })();
+  const tailGeo = colorFoil(makeFoil({ span: 0.14, both: true, nA: 16, le: a => -0.004 - 0.1 * Math.pow(a, 1.5), te: a => -0.004 - 0.1 * Math.pow(a, 1.5) - 0.032 * (1 - a) - 0.006, th: a => 0.008 * (1 - a) + 0.0015 }), 0.14, a => mix3(dark, gray, a * 0.6));
   const fish = [];
   for (let i = 0; i < N; i++) {
-    const f = new THREE.Group(); f.add(new THREE.Mesh(hull.geometry, bodyMat)); finGeos.forEach(gg => f.add(new THREE.Mesh(gg, fm)));
+    const f = new THREE.Group(); f.add(new THREE.Mesh(hull.geometry, bodyMat), new THREE.Mesh(finGeo, fm));
     const tp = new THREE.Group(); tp.position.set(0, 0, -0.5); const tm = new THREE.Mesh(tailGeo, fm); tm.rotation.z = Math.PI / 2; tp.add(tm); f.add(tp);
-    [1, -1].forEach(sd => { const pm = new THREE.Mesh(pecGeo, fm); pm.scale.x = sd; pm.position.set(sd * 0.08, -0.03, 0.27); pm.rotation.set(0.2, sd * -0.9, sd * -0.3, 'YXZ'); f.add(pm);
-      const e = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 8), em); e.scale.x = 0.5; e.position.set(sd * 0.042, 0.018, 0.43); f.add(e); });
-    f.scale.setScalar(size);
-    const off = new THREE.Vector3((rnd() - 0.5) * 9, (rnd() - 0.5) * 4, (rnd() - 0.5) * 14).multiplyScalar(size);
-    g.add(f); fish.push({ f, tp, off, ph: rnd() * 10, sp: 0.85 + rnd() * 0.3 });
+    f.scale.setScalar(size * (0.9 + rnd() * 0.2));
+    const off = new THREE.Vector3((rnd() - 0.5) * 7, (rnd() - 0.5) * 3, (rnd() - 0.5) * 11).multiplyScalar(size);
+    g.add(f); fish.push({ f, tp, off, ph: rnd() * 10, sp: 0.9 + rnd() * 0.2, side: rnd() < 0.5 ? 1 : -1 });
   }
+  const V = new THREE.Vector3();
   function animate(t, speed, ctx) {
-    const sc = (ctx && ctx.scare) || 0;
+    const sc = (ctx && ctx.scare) || 0, fwd = size * 1.6;               // 群れの中を前へ進む速さ（体長/秒。群れ全体の動きは外で決まる）
+    // 向きを変える波: 8 秒ごとに、群れの前から後ろへ伝わる。波が通るとき、体を傾けて少し向きを変える（わき腹が光る）
+    const cyc = 8, tau = ((t % cyc) + cyc) % cyc, front = (7 - tau * 5) * size;
     fish.forEach(F => {
       const tt = t * F.sp + F.ph;
-      F.tp.rotation.y = 0.35 * Math.sin(tt * 2 * Math.PI * 2.6);              // 尾だけを速く振る
-      F.f.rotation.y = 0.04 * Math.sin(tt * 2 * Math.PI * 2.6 + 1.5) + 0.12 * Math.sin(tt * 0.4);
-      F.f.position.copy(F.off).multiplyScalar(1 + 1.8 * sc).add(Q.set(Math.sin(tt * 0.5) * size, Math.sin(tt * 0.7) * size * 0.4, Math.sin(tt * 0.3) * size * 1.5));
+      F.tp.rotation.y = 0.32 * Math.sin(tt * 2 * Math.PI * 2.8);              // 尾だけを速く振る
+      // 群れの中での位置: ゆっくりさまよう。進む向きは、その動きの向き（前へ進む速さを足して）
+      const ax = size, ay = size * 0.4, az = size * 1.5;
+      F.f.position.copy(F.off).multiplyScalar(1 + 1.8 * sc).add(V.set(Math.sin(tt * 0.5) * ax, Math.sin(tt * 0.7) * ay, Math.sin(tt * 0.3) * az));
+      const vx = Math.cos(tt * 0.5) * 0.5 * ax * F.sp, vy = Math.cos(tt * 0.7) * 0.7 * ay * F.sp, vz = Math.cos(tt * 0.3) * 0.3 * az * F.sp + fwd;
+      const wv = Math.exp(-Math.pow((F.off.z - front) / (2.2 * size), 2));
+      F.f.rotation.set(-Math.atan2(vy, vz) * 0.8, Math.atan2(vx, vz) + 0.03 * Math.sin(tt * 2 * Math.PI * 2.8 + 1.5) + 0.4 * wv * F.side, 0.8 * wv * F.side, 'YXZ');
     });
   }
   animate(0);

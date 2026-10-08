@@ -91,7 +91,7 @@ window.SEA = {
       note: '外洋の表層を泳ぐサメ。先の丸い大きな背びれと、長いへらのような胸びれ。ひれの先がまだらに白い。数が大きく減っている。' },
     { kind: 'mola', name: 'マンボウ', sci: 'Mola mola', from: 0, to: 400, size: 2, density: 0.03, rare: true, speed: 0.4, status: 'preview',
       note: '尾びれのない、円盤のような体の大きな魚。高い背びれとしりびれを左右にそろえて打ち振って泳ぐ。深く潜ってクラゲなどを食べ、海面で横になって体を温める。' },
-    { kind: 'skipjack', name: 'カツオ', sci: 'Katsuwonus pelamis', from: 0, to: 260, size: 0.6, density: 0.2, view: 6, speed: 1.4, behavior: 'school', status: 'preview',
+    { kind: 'skipjack', name: 'カツオ', sci: 'Katsuwonus pelamis', from: 0, to: 260, size: 0.6, density: 0.2, view: 6, speed: 1.4, behavior: 'school', roam: 150, agility: 0.25, status: 'preview',
       note: '大きな群れで外洋を速く泳ぐ、マグロの仲間。腹に 4〜6 本の黒い縦じま。体はほとんど曲げず、三日月形の尾びれを速く振って泳ぐ。' },
     { kind: 'humpback', name: 'ザトウクジラ', sci: 'Megaptera novaeangliae', from: 0, to: 200, size: 14, rare: true, speed: 0.8, behavior: 'migrate', cruise: 1.5, dive: 150,
       pods: [{ lat: 13.75, lon: 144.45, km: 4, n: 2 }, { lat: 12.9, lon: 145.2, km: 5, n: 1 }], status: 'preview',

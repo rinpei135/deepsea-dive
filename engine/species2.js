@@ -409,20 +409,32 @@ function buildSkipjackSchool(size) {
     const off = new THREE.Vector3((rnd() - 0.5) * 7, (rnd() - 0.5) * 3, (rnd() - 0.5) * 11).multiplyScalar(size);
     g.add(f); fish.push({ f, tp, off, ph: rnd() * 10, sp: 0.9 + rnd() * 0.2, side: rnd() < 0.5 ? 1 : -1 });
   }
-  const V = new THREE.Vector3();
+  // 群れの動き: 群れ全体が曲がるとき、1 枚の板のように回さない。群れの形はゆっくり遅れて向きを変え、1 匹ずつは前の魚から順に向きを変える
+  const V = new THREE.Vector3(), wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+  let lastT = null, schoolYaw = 0, wave = null, nextWave = 10 + rnd() * 20;
+  const zMax = Math.max(...fish.map(F => F.off.z)), zMin = Math.min(...fish.map(F => F.off.z));
   function animate(t, speed, ctx) {
-    const sc = (ctx && ctx.scare) || 0, fwd = size * 1.6;               // 群れの中を前へ進む速さ（体長/秒。群れ全体の動きは外で決まる）
-    // 向きを変える波: 8 秒ごとに、群れの前から後ろへ伝わる。波が通るとき、体を傾けて少し向きを変える（わき腹が光る）
-    const cyc = 8, tau = ((t % cyc) + cyc) % cyc, front = (7 - tau * 5) * size;
+    const sc = (ctx && ctx.scare) || 0, fwd = size * 2.5;               // 群れの中を前へ進む速さ（群れ全体の動きは外で決まる）
+    const Hg = g.rotation.y, dt = lastT == null ? 0 : Math.min(0.2, Math.max(0, t - lastT)); lastT = t;
+    if (dt === 0) { schoolYaw = Hg; fish.forEach(F => { F.yaw = Hg; }); }
+    schoolYaw += wrap(Hg - schoolYaw) * Math.min(1, dt * 0.7);
+    const fy = schoolYaw - Hg, cf = Math.cos(fy), sf = Math.sin(fy);
+    // 向きを変える波: ときどき（驚いたときはすぐ）、群れの前から後ろへ伝わる。波が通ると、体を少し傾けて向きを変え、わき腹が光る
+    if (!wave && (t > nextWave || sc > 0.4)) { wave = { t0: t, side: rnd() < 0.5 ? 1 : -1 }; nextWave = t + 15 + rnd() * 25; }
+    let front = null; if (wave) { const k = (t - wave.t0) / 2.5; if (k > 1.3 || k < 0) wave = null; else front = zMax + 2 * size - k * (zMax - zMin + 4 * size); }
     fish.forEach(F => {
       const tt = t * F.sp + F.ph;
-      F.tp.rotation.y = 0.32 * Math.sin(tt * 2 * Math.PI * 2.8);              // 尾だけを速く振る
-      // 群れの中での位置: ゆっくりさまよう。進む向きは、その動きの向き（前へ進む速さを足して）
-      const ax = size, ay = size * 0.4, az = size * 1.5;
-      F.f.position.copy(F.off).multiplyScalar(1 + 1.8 * sc).add(V.set(Math.sin(tt * 0.5) * ax, Math.sin(tt * 0.7) * ay, Math.sin(tt * 0.3) * az));
+      F.tp.rotation.y = 0.26 * Math.sin(tt * 2 * Math.PI * 3.2);              // 尾だけを速く振る
+      // 群れの中での位置: ゆっくりさまよう（群れの形は、遅れて向きを変える）
+      const ax = size * 0.5, ay = size * 0.25, az = size * 1.2;
+      V.copy(F.off).multiplyScalar(1 + 1.8 * sc).add(Q.set(Math.sin(tt * 0.5) * ax, Math.sin(tt * 0.7) * ay, Math.sin(tt * 0.3) * az));
+      F.f.position.set(V.x * cf + V.z * sf, V.y, -V.x * sf + V.z * cf);
+      // 1 匹ずつの向き: 群れの向きを、前にいる魚ほど早く追う。さまよう動きの向きも少し
+      const lead = (F.off.z - zMin) / Math.max(0.01, zMax - zMin);
+      F.yaw = F.yaw == null ? Hg : F.yaw + wrap(Hg - F.yaw) * Math.min(1, dt * (0.6 + 1.6 * lead));
       const vx = Math.cos(tt * 0.5) * 0.5 * ax * F.sp, vy = Math.cos(tt * 0.7) * 0.7 * ay * F.sp, vz = Math.cos(tt * 0.3) * 0.3 * az * F.sp + fwd;
-      const wv = Math.exp(-Math.pow((F.off.z - front) / (2.2 * size), 2));
-      F.f.rotation.set(-Math.atan2(vy, vz) * 0.8, Math.atan2(vx, vz) + 0.03 * Math.sin(tt * 2 * Math.PI * 2.8 + 1.5) + 0.4 * wv * F.side, 0.8 * wv * F.side, 'YXZ');
+      const wv = front == null ? 0 : Math.exp(-Math.pow((F.off.z - front) / (1.6 * size), 2)) * wave.side;
+      F.f.rotation.set(-Math.atan2(vy, vz) * 0.8, wrap(F.yaw - Hg) + Math.atan2(vx, vz) + 0.025 * Math.sin(tt * 2 * Math.PI * 3.2 + 1.5) + 0.22 * wv, 0.5 * wv, 'YXZ');
     });
   }
   animate(0);

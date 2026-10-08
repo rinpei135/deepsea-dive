@@ -14,6 +14,8 @@
 //   behavior  動き方: 'migrate'（pods の場所を回遊し、深く潜っては浮上する）/ 'school'（群れ。近づくと散る）/
 //             'bait'（潜水艇が止まっていると寄ってくる）/ 'crawl'（海底を這い、跡を残す）/ 'hunt'（近くのヨコエビを追って食べる）。
 //             省略時は住みかの近くを泳ぐ
+//   roam      住みかから離れてよい距離 (m)。大きいほど、大きな弧を描いて遠くまで泳ぐ（省略時は体の大きさで決まる。外洋の群れなどに）
+//   agility   向きの変えやすさ（1 が既定。小さいほど、ゆるやかに曲がる）
 (() => {
 const T = window.__TRENCH, S = window.__DIVE, SEA = window.SEA, UI = window.__UI;
 const { renderer, camera } = T;
@@ -1164,12 +1166,12 @@ function update(dt, t, { dive, under, depth, view }) {
       const prey = c.target;
       sp = base > 0 ? base + shy * 0.25 + (c.scare || 0) * 0.6 + (lure ? 0.2 : 0) + (prey ? 0.3 : 0) : 0;
       if (sp > 0) {
-        const away = Math.hypot(c.x - c.hx, c.z - c.hz), leash = beh === 'crawl' ? 8 : Math.max(6, size * 4);
-        let turn = beh === 'crawl' ? Math.sin(t * 0.05 + c.seed) * 0.05 : Math.sin(t * 0.3 + c.seed) * 0.4 * Math.min(1, 0.4 / Math.max(0.4, size)) + (shy ? 1.2 : 0);
+        const away = Math.hypot(c.x - c.hx, c.z - c.hz), leash = beh === 'crawl' ? 8 : def.roam || Math.max(6, size * 4);
+        let turn = beh === 'crawl' ? Math.sin(t * 0.05 + c.seed) * 0.05 : Math.sin(t * 0.3 + c.seed) * 0.4 * Math.min(1, 0.4 / Math.max(0.4, size)) * (def.agility || 1) + (shy ? 1.2 : 0);
         const steer = (tx, tz, k) => { const want = Math.atan2(tx - c.x, tz - c.z), diff = Math.atan2(Math.sin(want - c.heading), Math.cos(want - c.heading)); turn += Math.max(-k, Math.min(k, diff * 2)); };
         if (prey) steer(prey.x, prey.z, 3);
         else if (lure) steer(px + fwd.x * 1.5, pz + fwd.z * 1.5, 2.5);
-        else if (away > leash) steer(c.hx, c.hz, beh === 'crawl' ? 0.1 : 0.6);
+        else if (away > leash) steer(c.hx, c.hz, beh === 'crawl' ? 0.1 : 0.6 * (def.agility || 1));
         if (c.scare > 0.3) steer(c.x + dx, c.z + dz, 1.5);              // 潜水艇から離れる向きへ
         c.heading += turn * dt;
         c.x += Math.sin(c.heading) * sp * dt; c.z += Math.cos(c.heading) * sp * dt;
@@ -1192,7 +1194,7 @@ function update(dt, t, { dive, under, depth, view }) {
     // 近景の座標（プレイヤーが原点、メートル単位、上が +y）
     const g = c.body.group;
     g.position.set(c.x - px, -(c.depth - depth) + (h === 'onFloor' ? 0 : Math.sin(t * 1.6 + c.seed) * 0.03 * Math.min(1, size * 5)), c.z - pz);
-    g.rotation.set(c.pitch || 0, c.heading, h === 'onFloor' ? 0 : Math.sin(t * 0.7 + c.seed) * 0.08, 'YXZ');
+    g.rotation.set(c.pitch || 0, c.heading, h === 'onFloor' || beh === 'school' ? 0 : Math.sin(t * 0.7 + c.seed) * 0.08, 'YXZ');   // 群れは全体を傾けない（1 枚の板のように揺れて見えるので）
     if (c.trail) updateTrail(c, px, pz, depth);
     // 画面で小さく見えるもの・霧で薄いものほど、形の更新を間引く。とても小さく見えるものは、種類ごとにまとめて描く
     const look = size / Math.max(0.1, d) * Math.exp(-Math.pow(scene.fog.density * d, 2)), every = look > 0.4 ? 1 : look > 0.12 ? 2 : look > 0.04 ? 3 : 5;

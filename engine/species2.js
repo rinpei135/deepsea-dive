@@ -140,10 +140,19 @@ function gillLines(x, W, H, s0, s1, n, uMid, uHalf, rgba, wd) {
 // 後ろへ急に低くなって尾の近くまで続く。尾びれは硬く大きな三日月形で、尾の付け根の左右に 2 本ずつの隆起（キール）。
 // 胸びれは細長い鎌形、腹びれは細い糸。背は濃い紺で、つやのある青い光沢。腹は銀白色。興奮すると、わき腹に淡い青の縦じま（十数本）が浮かぶ
 function buildMarlin(size) {
-  const W = curve([0, 0.04, 0.18, 0.42, 0.7, 0.9, 1], [0.012, 0.036, 0.06, 0.058, 0.034, 0.014, 0.011]);
-  const H = curve([0, 0.04, 0.18, 0.42, 0.7, 0.9, 1], [0.013, 0.05, 0.1, 0.096, 0.055, 0.019, 0.013]);
-  const map = tex('marlin2', 1024, 1024, (x, Wd, Ht) => {
-    countershade(x, Wd, Ht, '#091634', '#3c5a80', '#eef1f2', 0.085);
+  // 体: 頭のすぐ後ろ（背びれの始まり）がいちばん高く、尾の付け根へ向かって細くなる。左右にやや平たい（幅は高さの 6 割ほど）
+  const W = curve([0, 0.04, 0.12, 0.25, 0.45, 0.7, 0.88, 1], [0.011, 0.028, 0.048, 0.058, 0.053, 0.031, 0.014, 0.012]);
+  const H = curve([0, 0.04, 0.12, 0.25, 0.45, 0.7, 0.88, 1], [0.013, 0.047, 0.092, 0.105, 0.093, 0.054, 0.021, 0.014]);
+  const map = tex('marlin3', 1024, 1024, (x, Wd, Ht) => {
+    // 背は濃い紺（光の当たる所は青く光る）。体の横の真ん中で、はっきり銀白色に変わる（u: 0 横の中央 → 0.25 背 → 0.5 反対の横 → 0.75 腹）
+    const gr = x.createLinearGradient(0, 0, Wd, 0);
+    [[0, '#6f86a0'], [0.025, '#1d3a78'], [0.1, '#0e2050'], [0.25, '#060f28'], [0.4, '#0e2050'], [0.475, '#1d3a78'], [0.5, '#6f86a0'], [0.525, '#cdd5dc'], [0.62, '#e8ecef'], [0.75, '#f3f5f6'], [0.88, '#e8ecef'], [0.975, '#cdd5dc'], [1, '#6f86a0']].forEach(([u, c]) => gr.addColorStop(u, c));
+    x.fillStyle = gr; x.fillRect(0, 0, Wd, Ht);
+    // 境目は少し波打つ
+    for (const u0 of [0, 0.5]) for (let y = 0; y < Ht; y += 4) { const off = Math.sin(y * 0.05) * 4 + Math.sin(y * 0.013) * 6; x.fillStyle = 'rgba(205,213,220,.55)'; x.fillRect(((u0 + (u0 ? 0.004 : -0.004)) * Wd + off + Wd) % Wd - 3, y, 6, 4); }
+    // えらぶたの縁（目の後ろの、ゆるい弧）
+    x.strokeStyle = 'rgba(8,14,30,.55)'; x.lineWidth = 3;
+    for (const c of [0, 0.5]) for (const sh of [-Wd, 0, Wd]) { x.beginPath(); for (let a = -1; a <= 1.001; a += 0.05) x.lineTo((c + a * 0.11) * Wd + sh, (0.1 + 0.022 * (1 - a * a)) * Ht); x.stroke(); }
     // 背のつや: 紺の中に、青みの強い所と黒っぽい所のまだら
     mottle(x, Wd, Ht, 140, 14, 46, 'rgba(30,70,150,.25)', 0, 1, [0.1, 0.4]);
     mottle(x, Wd, Ht, 80, 10, 30, 'rgba(5,10,25,.3)', 0, 1, [0.15, 0.35]);
@@ -159,13 +168,16 @@ function buildMarlin(size) {
   const skinM = new THREE.MeshPhysicalMaterial({ map, metalness: 0.4, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.15 });
   const dark = [0.04, 0.07, 0.17], blue = [0.12, 0.22, 0.45], edge = [0.2, 0.3, 0.55];
   return swimmer(size, {
-    W, H, skinM, NS: 64, NR: 30, amp: s => 0.05 * Math.pow(s, 2.6), k: 3.0, freq: 1.2, tailBeat: 0.22, recoil: 0.002, finOpacity: 0.88,
-    fins: [{ s0: 0.11, s1: 0.78, up: 1, n: 30, rays: true, h: u => (u < 0.25 ? 0.14 * Math.sin(Math.min(1, u / 0.06) * Math.PI / 2) * (1 - u * 1.6) : 0.075 * Math.pow(1 - (u - 0.25) / 0.75, 0.6) * 0.35) + 0.006, back: 0.3, c0: dark, c1: blue },
+    W, H, skinM, NS: 64, NR: 30,
+    shape: (s, th) => 1 + 0.12 * Math.max(0, Math.sin(th)) * Math.exp(-Math.pow((s - 0.12) / 0.07, 2)),   // 額から背びれの付け根へ、背が急に盛り上がる（腹側は平ら）
+    amp: s => 0.05 * Math.pow(s, 2.6), k: 3.0, freq: 1.2, tailBeat: 0.22, recoil: 0.002, finOpacity: 0.88,
+    // 第 1 背びれ: 前の端が高く尖り（体高より少し低い）、後ろの縁は鎌のようにえぐれて急に低くなり、低いまま尾の近くまで続く
+    fins: [{ s0: 0.11, s1: 0.78, up: 1, n: 40, rays: true, h: u => u < 0.3 ? 0.15 * Math.sin(Math.min(1, u / 0.035) * Math.PI / 2) * Math.pow(1 - u / 0.3, 1.5) + 0.024 * u / 0.3 : 0.024 * Math.pow(1 - (u - 0.3) / 0.7, 0.5) + 0.004, back: 0.4, c0: dark, c1: blue },
       { s0: 0.87, s1: 0.9, up: 1, n: 4, h: u => 0.026 * Math.sin(Math.PI * u), back: 0.6, c0: dark, c1: dark },
       { s0: 0.57, s1: 0.68, up: -1, n: 8, rays: true, h: u => 0.07 * Math.pow(1 - u, 0.8) + 0.004, back: 0.5, c0: dark, c1: edge },
       { s0: 0.87, s1: 0.9, up: -1, n: 4, h: u => 0.022 * Math.sin(Math.PI * u), back: 0.6, c0: dark, c1: dark },
       ...[1, -1].flatMap(sd => [{ s0: 0.9, s1: 1.0, side: sd, n: 5, h: u => 0.018 * Math.sin(Math.PI * u), back: 0.2, c0: dark, c1: dark }])],   // 尾の付け根の隆起
-    tails: [{ rotZ: Math.PI / 2, c: (a) => mix3(dark, [0.08, 0.12, 0.25], a), foil: { span: 0.23, both: true, le: a => -0.005 - 0.16 * Math.pow(a, 1.25), te: a => -0.005 - 0.16 * Math.pow(a, 1.25) - 0.05 * (1 - a) - 0.01, th: a => 0.014 * (1 - a) + 0.002 } }],
+    tails: [{ rotZ: Math.PI / 2, c: (a) => mix3(dark, [0.08, 0.12, 0.25], a), foil: { span: 0.22, both: true, le: a => -0.005 - 0.15 * Math.pow(a, 1.25), te: a => -0.005 - 0.15 * Math.pow(a, 1.25) - 0.07 * Math.pow(1 - a, 0.8) - 0.012, th: a => 0.014 * (1 - a) + 0.002 } }],
     pecs: [{ s: 0.22, th: -0.55, rot: [0.1, -1.0, -0.45], c: (a) => mix3(dark, blue, a * 0.7), foil: { span: 0.21, le: a => -0.07 * a * a, te: a => -0.07 * a * a - 0.04 * (1 - a) - 0.006, th: a => 0.009 * (1 - a) + 0.001 } }],
     extra: ctx => {
       const billM = skin({ color: 0x18202e, rim: 0x6a7a90, rimAmount: 0.15, clearcoat: 0.6, roughness: 0.45 });

@@ -1,5 +1,5 @@
 // 外洋の海面近くの生き物と、ダイブポイントの見どころの体。
-//   ハシナガイルカの群れ（海面でジャンプして回る）・トビウオ（海面から飛び出して滑空する）・キハダの群れ・流木につくシイラ、
+//   ハシナガイルカの群れ（海面でジャンプして回る）・トビウオ（海面から飛び出して滑空する）・キハダの群れ・小魚の群れ（ベイトボール）とそれを襲うキハダ・流木につくシイラ、
 //   沈船（東海丸）の体、タイマイ（アオウミガメの体の色を変える）。
 // 潜っているときは近景の世界（creatures.js）に描き、海面にいるときは、海面より上に出た体だけを別に描く。
 // 公開前（creatures.js の PREVIEW のときだけ表示）
@@ -200,6 +200,97 @@ function tunaFrame(dt, t, px, pz, camD, floorHere, show) {
   done(m, k);
 }
 
+// ---------- 小魚の群れ（ベイトボール）と、それを襲うキハダ ----------
+// クサヤモロ（ムロアジの仲間。体長 25cm ほど）の群れが、キハダに追われて球のように固まる。外洋でいちばん見ごたえのある光景のひとつ。
+// 逃げ場をなくした小魚は、すき間なく集まって渦を巻く。キハダは群れのまわりを回り、ときどき群れの中へ突っ込む。
+// 突っ込まれた所だけ小魚が割れて広がり、銀色にきらめく。追われた群れは、だんだん海面へ押し上げられ、しばらくすると、ほどけて散っていく
+const scadO = { hgt: 0.21, wid: 0.11, mx: 0.5, snout: 1.2, top: 0.06, ped: 0.1, tail: { len: 0.22, fork: 0.85, lobe: 0.45 }, dorsal: [0.3, 0.62, 0.15], anal: [0.25, 0.45, 0.1], finlets: 1, eye: [0.86, 0.78, 0.7],
+  pat: (u, v) => (u > 0.77 && u < 0.8 && v > 0.15 && v < 0.4) ? [0.1, 0.12, 0.14] : K.mixc([0.88, 0.9, 0.92], [0.16, 0.36, 0.55], Math.max(0, v + 0.1) * 1.4),   // 背は青緑、横と腹は銀白色。えらぶたに小さな黒い点
+  fin: (p, s) => p === 'tail' ? K.mixc([0.7, 0.68, 0.55], [0.5, 0.45, 0.32], s) : [0.6, 0.65, 0.7] };
+const BAIT_N = S.quality === 'low' ? 320 : 640, BAIT_NEAR = 90, HUNT_N = 8;
+const bait = {
+  far: K.instanced(K.fishGeo(scadO, 1), K.silverMat, BAIT_N),          // 遠く（6m より先）の魚は、面の少ない形で
+  near: K.instanced(K.fishGeo(scadO, 0), K.silverMat, BAIT_NEAR),
+  hunt: K.instanced(tunaGeo2(), K.silverMat, HUNT_N),
+  ball: null, next: 20 + Math.random() * 20                            // 潜ってから最初の群れは早めに
+};
+[bait.far, bait.near, bait.hunt].forEach(m => { m.castShadow = false; });
+function baitFrame(dt, t, px, pz, camD, floorHere, fwx, fwz) {
+  const B = bait;
+  if (!B.ball) {
+    B.next -= dt;
+    if (B.next > 0 || camD < 2 || camD > 45 || floorHere < 80) { done(B.far, 0); done(B.near, 0); done(B.hunt, 0); return; }
+    // 前方 32〜42m（霧の向こうに、ぼんやり見えはじめる所）に、水深 6〜25m で
+    const a = Math.atan2(fwz, fwx) + (Math.random() - 0.5) * 1.4, r = 32 + Math.random() * 10, R0 = 1.8 + Math.random() * 0.6;   // すき間なく固まった、直径 4m ほどの球
+    const fish = [];
+    for (let i = 0; i < BAIT_N; i++) {
+      // 球の中の位置: 中心からの水平の距離 rho・高さ y（球の半径を 1 として）。真ん中は少しあける（いちばん内側の魚も、小さく回りすぎないように）
+      const u = Math.cbrt(0.1 + 0.9 * Math.random()), ct = Math.random() * 2 - 1;
+      fish.push({ rho: Math.max(0.28, u * Math.sqrt(1 - ct * ct)), y: u * ct, a: Math.random() * 6.283, w: 0.9 + Math.random() * 0.3, ph: Math.random() * 6.3, s: 0.2 + Math.random() * 0.06, ox: 0, oy: 0, oz: 0, fl: 0, alive: true });
+    }
+    const hunters = [];
+    for (let j = 0, n = 5 + Math.floor(Math.random() * 4); j < n; j++)
+      hunters.push({ th: Math.random() * 6.283, rc: 8 + Math.random() * 5, dd: (Math.random() - 0.5) * 4, wait: 2 + Math.random() * 6, dash: null, s: 1.0 + Math.random() * 0.4, x: 0, z: 0, d: 0, vx: 1, vy: 0, vz: 0 });
+    B.ball = { x: px + Math.cos(a) * r, z: pz + Math.sin(a) * r, d: Math.max(6, Math.min(25, camD + (Math.random() - 0.3) * 8)), R: R0, dir: Math.random() < 0.5 ? 1 : -1, t: 0, life: 80 + Math.random() * 40, fish, hunters };
+  }
+  const P = B.ball; P.t += dt;
+  const end = Math.max(0, P.t - P.life);                               // 終わり: キハダが去り、群れがほどける
+  if (end > 7 || Math.hypot(P.x - px, P.z - pz) > 140) { B.ball = null; B.next = 100 + Math.random() * 60; done(B.far, 0); done(B.near, 0); done(B.hunt, 0); return; }
+  P.d += (2.5 - P.d) * Math.min(1, dt * 0.012);                        // 追われて、だんだん海面へ
+  P.x += Math.sin(t * 0.05) * 0.15 * dt; P.z += Math.cos(t * 0.04) * 0.15 * dt;
+  const spread = 1 + end * end * 0.6;
+  // キハダ: 群れのまわりを回り、ときどき群れの中を突っ切る（反対側へ抜けて、また回る）
+  let kh = 0;
+  for (const h of P.hunters) {
+    const ox = h.x, oy = h.d, oz = h.z;
+    if (end > 0) {                                                     // 去っていく
+      h.dash = null; h.rc += 5 * dt;
+      h.th += 3 / h.rc * dt * P.dir;
+      h.x = P.x + Math.cos(h.th) * h.rc; h.z = P.z + Math.sin(h.th) * h.rc; h.d = P.d + h.dd;
+    } else if (h.dash) {
+      const D = h.dash, k = Math.min(1, (P.t - D.t0) / D.dur), e = k * k * (3 - 2 * k);
+      h.x = D.ax + (D.bx - D.ax) * e; h.z = D.az + (D.bz - D.az) * e; h.d = D.ad + (D.bd - D.ad) * e + Math.sin(Math.PI * k) * D.arc;
+      if (k >= 1) { h.th = D.thB; h.dash = null; h.wait = 3 + Math.random() * 6; }
+      else if (!D.ate && k > 0.4 && k < 0.6) {                         // 群れの真ん中で、ときどき 1 匹食べる
+        D.ate = true; if (Math.random() < 0.5) { const q = P.fish.find(q => q.alive && Math.random() < 0.05); if (q) q.alive = false; }
+      }
+    } else {
+      h.th += 3 / h.rc * dt * P.dir; h.wait -= dt;
+      h.x = P.x + Math.cos(h.th) * h.rc; h.z = P.z + Math.sin(h.th) * h.rc; h.d = P.d + h.dd + Math.sin(t * 0.4 + h.rc) * 0.8;
+      if (h.wait < 0 && P.t > 4) {
+        const thB = h.th + Math.PI + (Math.random() - 0.5) * 0.8, len = h.rc * 2;
+        h.dash = { t0: P.t, dur: len / 7.5, ax: h.x, az: h.z, ad: h.d, bx: P.x + Math.cos(thB) * h.rc, bz: P.z + Math.sin(thB) * h.rc, bd: P.d + (Math.random() - 0.5) * 3, thB, arc: (Math.random() - 0.5) * 1.5, ate: false };
+      }
+    }
+    if (dt > 0) { const vx = (h.x - ox) / dt, vy = (h.d - oy) / dt, vz = (h.z - oz) / dt; if (Math.hypot(vx, vz) > 0.1) { const k6 = Math.min(1, dt * 6); h.vx += (vx - h.vx) * k6; h.vy += (vy - h.vy) * k6; h.vz += (vz - h.vz) * k6; } }
+    put(B.hunt, kh++, h.x - px, camD - h.d, h.z - pz, orient(h.vx, -h.vy, h.vz), h.s);
+  }
+  done(B.hunt, kh);
+  // 小魚: 球の中を渦を巻いて回る。突っ込んでくるキハダの近くでは、通り道から押しのけられて割れ、きらめく
+  const dashing = P.hunters.filter(h => h.dash);
+  let nf = 0, nn = 0;
+  for (const q of P.fish) {
+    if (!q.alive) continue;
+    const Rb = P.R * spread * (1 + 0.06 * Math.sin(t * 0.7 + q.ph)), rr = q.rho * Rb;
+    q.a += P.dir * q.w * 1.1 / Math.max(0.8, rr) * dt;
+    const x0 = P.x + Math.cos(q.a) * rr, z0 = P.z + Math.sin(q.a) * rr, d0 = P.d - q.y * Rb * 0.75 + 0.12 * Math.sin(t * 0.9 + q.ph);
+    let tx = 0, ty = 0, tz = 0, fl = 0;
+    for (const h of dashing) {
+      const ex = x0 - h.x, ey = d0 - h.d, ez = z0 - h.z, e = Math.hypot(ex, ey, ez) || 1;
+      if (e < 2.4) { const k = (2.4 - e) / 2.4, push = k * 1.5; tx += ex / e * push; ty += ey / e * push; tz += ez / e * push; fl = Math.max(fl, k); }
+    }
+    const grow = tx * tx + ty * ty + tz * tz > q.ox * q.ox + q.oy * q.oy + q.oz * q.oz, kk = Math.min(1, dt * (grow ? 8 : 1.2));   // さっと割れて、ゆっくり戻る
+    q.ox += (tx - q.ox) * kk; q.oy += (ty - q.oy) * kk; q.oz += (tz - q.oz) * kk;
+    q.fl += (fl - q.fl) * Math.min(1, dt * 5);
+    const x = x0 + q.ox, d = d0 + q.oy, z = z0 + q.oz;
+    // 向き: 渦の向き（ほどけるときは外へ）。押しのけられた向きにも少し
+    const hx = -Math.sin(q.a) * P.dir + q.ox * 0.8 + Math.cos(q.a) * end * 0.5, hz = Math.cos(q.a) * P.dir + q.oz * 0.8 + Math.sin(q.a) * end * 0.5, hy = -q.oy * 0.5 + 0.1 * Math.cos(t * 0.9 + q.ph);
+    const e = Math.hypot(x - px, d - camD, z - pz), near = e < 6 && nn < BAIT_NEAR;
+    put(near ? B.near : B.far, near ? nn++ : nf++, x - px, camD - d, z - pz, orient(hx, hy, hz), q.s, 1 + 0.6 * q.fl);
+  }
+  done(B.far, nf); done(B.near, nn);
+}
+
 // ---------- 流木とシイラ ----------
 // 外洋（水深 80m より深い所）には、ところどころ流木や流れ藻が浮かび、その下にシイラが集まる。場所は 500m 四方の区画ごとの乱数で決まる
 const FLOT = 500;
@@ -254,11 +345,13 @@ const DEF = {
   yellowfin: D('yellowfin', 'キハダ', 'Thunnus albacares', 0, 250, '外洋（水深 50m より深い海の、表層）',
     '長く伸びた黄色い背びれとしりびれが目印のマグロ。群れで外洋を速く泳ぎ回り、小魚やイカを食べる。', tunaGeo2),
   mahi: D('mahi', 'シイラ', 'Coryphaena hippurus', 0, 30, '外洋の海面近く（流木や流れ藻の下）',
-    '金色と青緑にかがやく、額の切り立った魚。流木や流れ藻の下に集まる小魚を狙って、そのまわりを泳ぐ。グアムでも人気の釣りの魚。', mahiGeo2)
+    '金色と青緑にかがやく、額の切り立った魚。流木や流れ藻の下に集まる小魚を狙って、そのまわりを泳ぐ。グアムでも人気の釣りの魚。', mahiGeo2),
+  scad: D('scad', 'クサヤモロ', 'Decapterus macarellus', 0, 60, '外洋の表層（キハダなどに追われると、海面近くで球のように固まる）',
+    'ムロアジの仲間で、体長 25cm ほどの細長い銀色の魚。大きな群れで外洋を泳ぎ、プランクトンを食べる。大きな魚に追われると、すき間なく集まって球のような群れ（ベイトボール）を作り、渦を巻いて身を守る。', () => K.fishGeo(scadO, 0))
 };
 Object.values(DEF).forEach(d => R.species.push(d));
 // 左の欄の「この深さで出会える生き物」: 外洋（水深 50m より深い海の上）の水深 40m より浅い所
-R.nearbyExtra.push((px, pz, depth, floorD) => floorD > 50 && depth < 40 ? [DEF.dolphin, DEF.yellowfin, DEF.mahi, DEF.flyfish] : []);
+R.nearbyExtra.push((px, pz, depth, floorD) => floorD > 50 && depth < 40 ? [DEF.dolphin, DEF.yellowfin, DEF.scad, DEF.mahi, DEF.flyfish] : []);
 // 出会い: 30m 以内（シイラは 12m 以内）で、画面の正面近くに見えたとき。トビウオとイルカは、海面にいるときも
 const FWD = new THREE.Vector3();
 let meetT = 0;
@@ -274,6 +367,7 @@ function checkMeet(dt, px, pz, camD, flots) {
   if (ff.list.some(q => seen(q.x, 0, q.z, px, pz, camD, 30))) K.meetDef(DEF.flyfish, md);
   if (camD > 0.5 && tuna.sc) { const P = tuna.sc; if (seen(P.x, P.d, P.z, px, pz, camD, 30)) K.meetDef(DEF.yellowfin, md); }
   if (camD > 0.5) for (const f of flots) if ((f.mahi || []).some(q => seen(q.x, q.d, q.z, px, pz, camD, 12))) K.meetDef(DEF.mahi, md);
+  if (camD > 0.5 && bait.ball) { const P = bait.ball; if (seen(P.x, P.d, P.z, px, pz, camD, 30)) K.meetDef(DEF.scad, md); if (P.hunters.some(h => seen(h.x, h.d, h.z, px, pz, camD, 25))) K.meetDef(DEF.yellowfin, md); }
 }
 // 撮影: 画面の中央近くに大きく写っているもの
 let lastFlots = [];
@@ -288,12 +382,13 @@ function subject(fwd, px, pz, depth) {
   if (dol.pod) dol.pod.list.forEach(q => check(DEF.dolphin, q.x, q.d, q.z, 1.8));
   ff.list.forEach(q => check(DEF.flyfish, q.x, 0, q.z, 0.3));
   if (tuna.sc) check(DEF.yellowfin, tuna.sc.x, tuna.sc.d, tuna.sc.z, 1.2);
+  if (bait.ball) { const P = bait.ball; check(DEF.scad, P.x, P.d, P.z, P.R * 1.5); P.hunters.forEach(h => check(DEF.yellowfin, h.x, h.d, h.z, 1.2)); }
   lastFlots.forEach(f => (f.mahi || []).forEach(q => check(DEF.mahi, q.x, q.d, q.z, 1)));
   return best && { def: best, score };
 }
 
 // ---------- 毎フレーム（creatures.js の update から。深い海の上・海面の上でも呼ばれる） ----------
-const ALL = [dol.mesh, ff.mesh, tuna.mesh, logs.mesh, mahi.mesh];
+const ALL = [dol.mesh, ff.mesh, tuna.mesh, logs.mesh, mahi.mesh, bait.far, bait.near, bait.hunt];
 function frame(dt, t, { dive, under, depth }) {
   dt = Math.min(dt, 0.1);
   K.TIME.value = t;
@@ -307,6 +402,7 @@ function frame(dt, t, { dive, under, depth }) {
   dolphinFrame(dt, t, px, pz, camD, floorHere, true);
   flyingFrame(dt, t, px, pz, camD, floorHere, true, FWD.x / fl, FWD.z / fl);
   tunaFrame(dt, t, px, pz, camD, floorHere, true);
+  baitFrame(dt, t, px, pz, camD, floorHere, FWD.x / fl, FWD.z / fl);
   lastFlots = flotFrame(dt, t, px, pz, camD, true);
   checkMeet(dt, px, pz, camD, lastFlots);
 }
@@ -314,7 +410,7 @@ REEF.pelagic = frame;
 REEF.warm = () => {                                                   // 潜航の始めに、海面より上を描く場面の材質も作っておく（creatures.js の warmAll から）
   AIR_MESHES.forEach(m => airScene.add(m)); T.renderer.compile(airScene, airCam); AIR_MESHES.forEach(m => scene.add(m));
 };
-window.__PELAGIC = { dol, ff, tuna, DEF };                                // 確認用
+window.__PELAGIC = { dol, ff, tuna, bait, DEF };                                // 確認用
 REEF.renderAir = renderAir;
 // （サンゴ礁の生き物を隠す REEF.hide は、海面の上でも呼ばれるので、ここでは使わない。見せるかどうかは frame が決める）
 { const prevSub = REEF.subject; REEF.subject = (fwd, px, pz, depth) => {

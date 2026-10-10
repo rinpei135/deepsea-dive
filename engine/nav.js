@@ -265,8 +265,9 @@ function frame(now) {
   u.uLampR.value = d > 150 && S.lamp ? 0.045 : 0;                 // ライトの届く距離 (km)。実際の潜水艇のライトは数十 m
   camera.getWorldDirection(u.uCamDir.value);
   // ソナーで浮かぶ地形: 日の光が届く浅い海では目で見える景色を邪魔しないよう薄く、暗い深さでははっきり
-  // 近くの海底（細かい地形）が見える浅い所（25m より浅い所）では、遠くの粗い地形に重ねない（粗い三角形やソナーの波面の線が、景色の中に浮いて見えるので）。宝箱は 2,000m より深い所だけ
-  u.uSonar.value = (0.2 + 0.8 * Math.min(1, Math.max(0, (d - 50) / 250))) * (bedOn ? Math.min(1, Math.max(0, (d - 25) / 35)) : 1); u.uEx.value = state.ex;
+  // 日の光で見える浅い所（20m より浅い所）では重ねず、深くなるにつれて少しずつ（霧の上から遠くの島の地形が浮かんで、水平線に一直線の線が見えるので。
+  // 近くの海底が見える所では、粗い三角形やソナーの波面の線も浮いて見える）。宝箱は 2,000m より深い所だけ
+  u.uSonar.value = (0.2 + 0.8 * Math.min(1, Math.max(0, (d - 50) / 250))) * Math.min(1, Math.max(0, (d - 20) / 60)) * (bedOn ? Math.min(1, Math.max(0, (d - 25) / 35)) : 1); u.uEx.value = state.ex;
   snow.uniforms.uAlpha.value = under ? Math.min(1, Math.max(0, (d - 40) / 300)) * 0.3 : 0;   // 近くのマリンスノーは creatures.js がライトに合わせて描く
   glow.uniforms.uAlpha.value = under ? Math.min(1, Math.max(0, (d - 200) / 400)) * (1 - Math.min(1, Math.max(0, (d - 5000) / 2000))) : 0;
   [snow, glow].forEach(m => { m.uniforms.uCam.value.copy(camera.position); m.uniforms.uTime.value = t; });

@@ -131,7 +131,7 @@ const mat = new THREE.ShaderMaterial({
     ${T.CURVE_GLSL}
     varying vec3 vW; varying vec3 vN; varying float vE; varying float vDet;
     ${T.EXDEPTH_GLSL}
-    uniform float uFlat;
+    uniform float uFlat; uniform vec4 uSink;
     float yOf(float e){ return e > 0.0 ? e / 1000.0 : -exDepth(-e, uFlat > 0.5 ? 1.0 : uEx) / 1000.0; }   // 海底だけ高さを強調（world.js の yOfElev と同じ。uFlat のときは実際の深さ）
     void main(){
       vec2 xz = uPatch.xy + position.xz * uPatch.z * 2.0;
@@ -143,6 +143,7 @@ const mat = new THREE.ShaderMaterial({
       float eL = coastElev(xz - vec2(h, 0.0)), eR = coastElev(xz + vec2(h, 0.0)), eD = coastElev(xz - vec2(0.0, h)), eU = coastElev(xz + vec2(0.0, h));
       vN = normalize(vec3(-(yOf(eR) - yOf(eL)) / (2.0 * h), 1.0, -(yOf(eU) - yOf(eD)) / (2.0 * h)));
       vE = eTop; vDet = 2.0; vW = vec3(xz.x, yOf(e), xz.y);                // 色はスカートも元の地面の高さで付ける（下げた高さだと、陸の縁に海の色の壁が見える）
+      if (uSink.w > 0.0 && e < 0.0) vW.y -= uSink.w * (1.0 - smoothstep(uSink.z * 0.85, uSink.z, length(vW.xz - uSink.xy)));   // 近くの細かい海底（creatures.js）の下へ沈める（world.js と同じ）
       gl_Position = projectionMatrix * viewMatrix * curved(vec4(vW, 1.0));
     }`,
   fragmentShader: T.terrainMat.fragmentShader

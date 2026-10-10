@@ -371,6 +371,7 @@ const terrainMat = new THREE.ShaderMaterial({
     // 潜航中に海面近くへ降りたとき、陸地を地図の色から写実的な色へ切り替える度合い（0〜1）と、太陽の向き（sea.js が入れる）
     uReal: { value: 0 }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
     uUpw: { value: 0 },                                // 水中の明るさの向きの差（sea.js の uUw と同じ。1 = 上が明るい）
+    uSunUwT: { value: new THREE.Vector3(0, 1, 0) }, uSunAT: { value: 0 },   // 水中から見た太陽の向きと、そのにじみの強さ（sea.js が入れる。水の背景と同じ色に溶かすため）
     // 地球の丸み（1 = 潜航中。カメラから離れるほど地面を下げ、遠くの島の根元が水平線に隠れる）。海面は平らなまま
     uCurv: { value: 0 },
     // 1 = 海底を強調しない実際の深さで描く（sea.js の「浅瀬の海底を透かす」画像だけ。生き物・サンゴは実際の深さで描くので、そろえる）
@@ -393,7 +394,7 @@ const terrainMat = new THREE.ShaderMaterial({
       vW = w.xyz; vN = normalize(normal);
       gl_Position = projectionMatrix * viewMatrix * curved(w); }`,
   fragmentShader: `
-    uniform vec3 uCam; uniform vec3 uCamDir; uniform float uDive, uSonar, uTime, uFogDen, uFogDen2, uLampR, uPingSpeed, uHold, uRange, uEx; uniform vec3 uFog; uniform vec4 uPing[6]; uniform vec4 uChest; uniform vec4 uHoles[4]; uniform float uReal, uUpw; uniform vec3 uSunDir;
+    uniform vec3 uCam; uniform vec3 uCamDir; uniform float uDive, uSonar, uTime, uFogDen, uFogDen2, uLampR, uPingSpeed, uHold, uRange, uEx; uniform vec3 uFog; uniform vec4 uPing[6]; uniform vec4 uChest; uniform vec4 uHoles[4]; uniform float uReal, uUpw, uSunAT; uniform vec3 uSunDir, uSunUwT;
     uniform sampler2D uShA, uShG; uniform vec4 uShAm, uShGm, uShGb; uniform vec2 uShAs, uShGs;
     varying vec3 vW; varying vec3 vN; varying float vE; varying float vDet;
     ${COAST_GLSL}
@@ -584,7 +585,10 @@ const terrainMat = new THREE.ShaderMaterial({
         col = sed * (sun + lamp * exp(-vec3(0.06, 0.02, 0.012) * dist * 2000.0));
         float vy = normalize(vW - uCam).y, up = vy > 0.0 ? 1.0 + 1.3 * pow(vy, 1.5) : mix(1.0, 0.3, smoothstep(0.0, 0.9, -vy));
         // 近くの海底（creatures.js）が描かれているときは、その霧（距離の 2 乗で濃くなる）にもそろえる。遠くの粗い地形だけが、近くの海底の外にうっすら見えないように
-        col = mix(col, uFog * mix(1.0, up, uUpw), max(1.0 - exp(-dist * uFogDen), 1.0 - exp(-pow(dist * uFogDen2, 2.0))));
+        // 霧の色は、水の背景（sea.js の waterBg）と同じに: 上ほど明るく、太陽の方向がにじんで明るい（違うと、遠くの地形の上の端＝水平線に一直線の段ができる）
+        float sg = max(dot(normalize(vW - uCam), uSunUwT), 0.0);
+        vec3 fogC = uFog * mix(1.0, up, uUpw) + vec3(0.45, 0.8, 0.95) * (pow(sg, 6.0) * 0.25 + pow(sg, 40.0) * 0.6) * uSunAT * uUpw;
+        col = mix(col, fogC, max(1.0 - exp(-dist * uFogDen), 1.0 - exp(-pow(dist * uFogDen2, 2.0))));
         // ソナー: 音の波面が届いた地形を一定時間だけ浮かび上がらせる
         float seen = 0.0, front = 0.0;
         for (int i = 0; i < 6; i++) {

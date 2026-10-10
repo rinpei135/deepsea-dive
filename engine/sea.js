@@ -723,6 +723,7 @@ const rayMat = new THREE.ShaderMaterial({
 });
 const rays = new THREE.Mesh(rayGeo, rayMat);
 rays.frustumCulled = false;
+rays.renderOrder = 2;                                                  // 海面の板（renderOrder 1）の後に描く（先に描くと、水平線より上の光の筋だけが海面に上書きされて消え、水平線に一直線の線が見える）
 scene.add(rays);
 
 // ---------- 入水時の泡 ----------
@@ -876,6 +877,7 @@ function update(t, { dive, under, depth, ex, surfaceOn }) {
   const dd = Math.max(0, depth), uw = under ? 1 - Math.min(1, Math.max(0, (dd - 1000) / 500)) : 1, sa = under ? Math.exp(-dd / 60) : 1;
   [sky.material, farMat, nearMat].forEach(m => { m.uniforms.uWater.value.copy(water); m.uniforms.uUw.value = uw; m.uniforms.uSunA.value = sa; });
   T.terrainMat.uniforms.uUpw.value = under ? uw : 0;
+  T.terrainMat.uniforms.uSunUwT.value.copy(sunUw); T.terrainMat.uniforms.uSunAT.value = sa;   // 遠くの地形の霧にも、太陽のにじみ（水の背景とそろえる）
   // 水中から見上げた海面も、遠くは水の色に溶ける
   const turb = T.turbidity(camera.position.x, camera.position.z) * Math.exp(-dd / 40);   // 港の中や河口は濁って、見上げた海面も近くしか見えない
   [farMat, nearMat].forEach(m => { m.uniforms.uFog.value.copy(water); m.uniforms.uFogDen.value = under ? 12 * (1 + 3 * turb) : 25 / ex; });   // 見上げる向きは光が上から来るので、横より遠くまで見える

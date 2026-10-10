@@ -94,6 +94,12 @@ function dolphinFrame(dt, t, px, pz, camD, floorHere, show) {
   }
   const P = dol.pod; P.t += dt;
   P.x += P.dx * 3 * dt; P.z += P.dz * 3 * dt;
+  // 声: 群れが 80m 以内にいると、ときどきホイッスルやクリック音が聞こえる（近いほど大きく、来る方向から）
+  { const e = Math.hypot(P.x - px, P.z - pz); P.voice = (P.voice || 0) - dt;
+    if (e < 80 && P.voice <= 0 && window.__AUDIO && window.__AUDIO.dolphin) {
+      const fl = Math.hypot(FWD.x, FWD.z) || 1, a = Math.atan2(P.x - px, P.z - pz) - Math.atan2(FWD.x / fl, FWD.z / fl);
+      window.__AUDIO.dolphin(0.05 + 0.25 * Math.pow(1 - e / 80, 1.5), Math.sin(a)); P.voice = 0.3 + Math.random() * 1.6;
+    } }
   if (P.t > 15 && Math.hypot(P.x - px, P.z - pz) > 90) { dol.pod = null; dol.next = 60 + Math.random() * 60; done(m, 0); return; }
   let k = 0;
   for (const q of P.list) {

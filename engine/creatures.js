@@ -1171,7 +1171,7 @@ const fwd = new THREE.Vector3(), water = new THREE.Color(), siltCol = new THREE.
 let preyPrev = [], preyNow = [], saidHunt = false;   // ヨコエビ（食べられる側）の一覧: 前のフレームのものを使って探す
 let active = false, above = false, frameNo = 0, shown = 0, lastP = null, pSpeed = 0, heardWhale = false;   // above: 海面の上から浅い海を見ている（生き物は海面ごしに透けて見える）
 const met = new Set();           // この回に出会った種類（図鑑に登録済みの生き物との出会いは控えめに知らせる）
-const nearestWhale = { d: Infinity, pan: 0 };                       // いちばん近い回遊個体（クジラの声の大きさと向きに使う）
+const nearestWhale = { d: Infinity, pan: 0, kind: '' };             // いちばん近い回遊個体（クジラの声の大きさと向き、種類で声を変える）
 function update(dt, t, { dive, under, depth, view }) {
   builtThisFrame = 0;
   // 海面の上（高さ 60m まで）から水深 40m より浅い海を見ているときも、生き物・サンゴ・海底を動かす。
@@ -1208,7 +1208,7 @@ function update(dt, t, { dive, under, depth, view }) {
     if (c.eaten) return;                                               // 食べられた個体（区画を作り直すまで出ない）
     if (beh === 'migrate') wanderAt(c, now);
     const dx = c.x - px, dz = c.z - pz, dy = -(c.depth - depth), d = Math.hypot(dx, dy, dz);
-    if (beh === 'migrate' && d < nearestWhale.d) { nearestWhale.d = d; const a = Math.atan2(dx, dz) - Math.atan2(fwd.x, fwd.z); nearestWhale.pan = Math.sin(a); }
+    if (beh === 'migrate' && d < nearestWhale.d) { nearestWhale.d = d; nearestWhale.kind = def.kind; const a = Math.atan2(dx, dz) - Math.atan2(fwd.x, fwd.z); nearestWhale.pan = Math.sin(a); }
     // 体は近くの個体にだけ（遠ざかったら返す）
     const R = Math.max(45, size * 6);
     if (!c.body) { if (d > R || !(c.body = takeBody(def))) return; scene.add(c.body.group); if (beh === 'crawl') c.trail = makeTrail(c); }
@@ -1291,7 +1291,7 @@ function update(dt, t, { dive, under, depth, view }) {
   Object.values(FAR).forEach(f => { if (!f) return; [f.solid, f.clear].forEach(im => { if (!im) return; im.count = f.n; im.visible = f.n > 0; if (f.n) im.instanceMatrix.needsUpdate = true; }); });
   updatePlankton(dt, px, pz, depth, pSpeed, lampOn);
   updateParticles(dt, t, px, pz, depth, lampOn, seabedY(px, pz) - depth);
-  if (nearestWhale.d < 12000 && !heardWhale && S.sound) {             // 初めてクジラの音が届いたときだけ、何の音か知らせる
+  if (nearestWhale.d < 12000 && !heardWhale && S.sound && nearestWhale.kind === 'spermwhale') {   // 初めてクジラの音が届いたときだけ、何の音か知らせる（ザトウクジラの歌は audio.js が知らせる）
     heardWhale = true; UI.toast('カチッ、カチッ…と規則正しい音が聞こえる。マッコウクジラが獲物を探す音だ。音が大きくなる方へ進めば会えるかもしれない。');
   }
   // 水の色・見通し・光（海面の上から見ているときは、海底の近くの深さの光で照らす）

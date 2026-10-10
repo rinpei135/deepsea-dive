@@ -196,6 +196,70 @@ function crunch(dist) {
   for (let i = 0; i < 3; i++) { g.gain.setValueAtTime(0, t0 + i * 0.06); g.gain.linearRampToValueAtTime(lv * (1 - i * 0.25), t0 + i * 0.06 + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.06 + 0.05); }
   n.stop(t0 + 0.3);
 }
+// ザトウクジラの歌（雄だけが歌う）: 低いうなり・上がる声・高い叫び・短いうめきなどの「音の単位」を組み合わせたフレーズを、
+// 同じ順でくり返す（同じ海域の雄たちは、同じ歌を歌う）。1 曲は十数分。音は 30〜4,000Hz ほどで、水中を何 km も届く
+// 単位: [形, 始めの高さ Hz, 終わりの高さ Hz, 長さ 秒]。形 m: うなり（なめらか）、u: 上がる声、a: 山なり（上がって下がる）、g: うめき（ざらついた低い声）、c: 高い叫び（ふるえる）
+const SONG = [
+  [['m', 110, 85, 2.6], ['u', 180, 520, 1.3], ['u', 190, 560, 1.2], ['a', 320, 260, 0.9]],
+  [['m', 110, 85, 2.6], ['u', 180, 520, 1.3], ['u', 190, 560, 1.2], ['a', 320, 260, 0.9]],
+  [['c', 900, 1150, 1.6], ['c', 880, 1120, 1.5], ['m', 160, 115, 2.2], ['g', 70, 60, 0.6], ['g', 72, 58, 0.6]],
+  [['c', 900, 1150, 1.6], ['c', 880, 1120, 1.5], ['m', 160, 115, 2.2], ['g', 70, 60, 0.6], ['g', 72, 58, 0.6]],
+  [['a', 250, 210, 1.1], ['m', 95, 120, 3.0], ['u', 140, 420, 1.0]]
+];
+let songIx = 0, nextSong = 0;
+function songUnit([shape, f0, f1, dur], lv, pan, t0) {
+  const o = ac.createOscillator(), o2 = ac.createOscillator(), g = gain(0), g2 = gain(shape === 'g' ? 0.6 : 0.28), lp = filt('lowpass', shape === 'g' ? 500 : 2400, 0.7);
+  o.type = shape === 'g' ? 'sawtooth' : 'sine'; o2.type = 'sine';
+  const fq = (p, set) => {
+    if (shape === 'a') { p.setValueAtTime(f0 * 0.75, t0); p.exponentialRampToValueAtTime(f0 * 1.25, t0 + dur * 0.45); p.exponentialRampToValueAtTime(f1, t0 + dur); }
+    else { p.setValueAtTime(f0, t0); p.exponentialRampToValueAtTime(f1, t0 + dur); }
+  };
+  fq(o.frequency); fq(o2.frequency); o2.detune.value = 1200 + rand(-8, 8);   // 1 オクターブ上の倍音（声の厚み）
+  if (shape === 'c' || shape === 'm') {                                // ふるえ（ビブラート）
+    const v = ac.createOscillator(), vg = gain(shape === 'c' ? f0 * 0.03 : f0 * 0.012); v.frequency.value = shape === 'c' ? rand(6, 9) : rand(2, 4); v.connect(vg); vg.connect(o.frequency); vg.connect(o2.frequency); v.start(t0); v.stop(t0 + dur + 0.2);
+  }
+  if (shape === 'g') {                                                 // うめき: 細かく脈打つ
+    const am = ac.createOscillator(), ag = gain(0.5); am.frequency.value = rand(18, 26); am.connect(ag).connect(g.gain); am.start(t0); am.stop(t0 + dur + 0.2);
+  }
+  const p = ac.createStereoPanner ? ac.createStereoPanner() : null;
+  o.connect(lp); o2.connect(g2).connect(lp); lp.connect(g);
+  if (p) { p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p).connect(worldBus); } else g.connect(worldBus);
+  const a = Math.min(0.35, dur * 0.3);
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(lv, t0 + a); g.gain.setValueAtTime(lv, t0 + dur - a); g.gain.linearRampToValueAtTime(0, t0 + dur);
+  o.start(t0); o2.start(t0); o.stop(t0 + dur + 0.1); o2.stop(t0 + dur + 0.1);
+}
+// 1 フレーズを鳴らし、かかる秒数を返す
+function humpbackPhrase(lv, pan) {
+  let t = now() + 0.1;
+  for (const u of SONG[songIx % SONG.length]) { songUnit(u, lv * rand(0.85, 1), pan, t); t += u[3] + rand(0.4, 1.1); }
+  songIx++;
+  return t - now();
+}
+
+// ハシナガイルカの声: 口笛のような声（ホイッスル。上がり下がりする高い音）と、獲物や仲間を探すクリック音（ジジジ…と速く続く）。
+// 近くの群れの声なので、こもらずに高い音のまま聞こえる。lv: 大きさ、pan: 左右
+function dolphin(lv, pan) {
+  if (!ac || !st.se || !st.under) return;
+  tell('dolphin', 'ピューイ、ピュルル…と高い声と、ジジジ…という音が聞こえる。イルカの群れが、口笛のような声で呼び合い、クリック音で獲物を探している。');
+  const p = ac.createStereoPanner ? ac.createStereoPanner() : null; if (p) { p.pan.value = Math.max(-1, Math.min(1, pan)); p.connect(seBus); }
+  const out = p || seBus, t0 = now() + rand(0, 0.3);
+  if (Math.random() < 0.6) {                                           // ホイッスル
+    const o = ac.createOscillator(), g = gain(0), dur = rand(0.35, 1.1), f0 = rand(6000, 9000), f1 = rand(9000, 14000), kind = Math.random();
+    o.type = 'sine';
+    if (kind < 0.4) { o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f1, t0 + dur); }                                    // 上がる
+    else if (kind < 0.7) { o.frequency.setValueAtTime(f1, t0); o.frequency.exponentialRampToValueAtTime(f0, t0 + dur); }                               // 下がる
+    else { o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f1, t0 + dur * 0.5); o.frequency.exponentialRampToValueAtTime(f0 * 1.1, t0 + dur); }   // 山なり
+    const v = ac.createOscillator(), vg = gain(rand(60, 220)); v.frequency.value = rand(3, 9); v.connect(vg).connect(o.frequency); v.start(t0); v.stop(t0 + dur + 0.1);   // ゆるいふるえ（強すぎると機械の音のように聞こえる）
+    o.connect(g).connect(out); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(lv * 0.5, t0 + 0.05); g.gain.setValueAtTime(lv * 0.5, t0 + dur - 0.08); g.gain.linearRampToValueAtTime(0, t0 + dur);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  } else {                                                             // クリック音の列（だんだん速くなる）
+    const n = 12 + Math.floor(rand(0, 24)), src = noise(t0), bp = filt('bandpass', rand(5000, 8000), 3), g = gain(0);
+    src.connect(bp).connect(g).connect(out);
+    let t = t0, gap = rand(0.03, 0.06);
+    for (let i = 0; i < n; i++) { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(lv * 0.6, t + 0.0008); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.006); t += gap; gap *= 0.94; }
+    src.stop(t + 0.05);
+  }
+}
 function chime(kind) {                            // 図鑑に登録・実績解除のときの小さな知らせ
   if (!ac || !st.se) return;
   (kind === 'achv' ? [79, 86, 91] : [84, 88]).forEach((n, i) => {
@@ -267,7 +331,13 @@ function update(dt, { dive, under, depth, motor }) {
   ramp(amb.motorF.frequency, 140 + Math.min(500, motor / 3), 0.5);
   // 回遊するマッコウクジラが 12km 以内にいると、反響定位の音が聞こえる（近いほど大きく、来る方向から）
   const W = window.__LIFE && window.__LIFE.whale;
-  if (under && st.se && W && W.d < 12000 && clock > nextClick) {
+  // ザトウクジラが 15km 以内にいると、歌が聞こえる（近いほど大きく、来る方向から）。フレーズの間は少しあける
+  if (under && st.se && W && W.kind === 'humpback' && W.d < 15000 && clock > nextSong) {
+    const lv = 0.04 + 0.45 * Math.pow(1 - W.d / 15000, 1.6);
+    nextSong = clock + humpbackPhrase(lv, W.pan) + rand(1.5, 4);
+    tell('humpback', 'うなるような低い声と、高く伸びる声が、くり返し聞こえる。ザトウクジラの雄の歌だ。冬のマリアナの海で、繁殖のために歌う。');
+  }
+  if (under && st.se && W && W.kind !== 'humpback' && W.d < 12000 && clock > nextClick) {
     const lv = 0.03 + 0.5 * Math.pow(1 - W.d / 12000, 2.5);
     for (let i = 0; i < 6; i++) click(lv * rand(0.8, 1), W.pan, now() + i * rand(0.55, 0.75));
     nextClick = clock + rand(4.5, 7);
@@ -299,5 +369,5 @@ function set(key, v) {
   if (key === 'vol') ramp(master.gain, v, 0.1);
 }
 
-window.__AUDIO = { crunch, start, update, set, ping, splash, surface, found, chime, click, quake, ship, get on() { return !!ac; } };
+window.__AUDIO = { crunch, dolphin, start, update, set, ping, splash, surface, found, chime, click, quake, ship, get on() { return !!ac; } };
 })();

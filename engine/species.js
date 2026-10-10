@@ -1548,36 +1548,37 @@ function buildSeaCucumber(size) {
 }
 
 // ---------- クセノフィオフォア（巨大な単細胞生物） ----------
-// 設計は差し渡し 1。泥の粒を固めた薄い板が何枚も折り重なった、もろい花のような塊。まったく動かない。group の原点は海底
+// 設計は差し渡し 1。泥や砂の粒を自分の体の膜で固めた、もろいかたまり（握りこぶし〜ソフトボールほど）。
+// いくつかのこぶがくっついたいびつな形で、表面は入り組んだひだと、小さな穴だらけ。泥の色。まったく動かない。group の原点は海底
 function buildXenophyophore(size) {
-  const g = new THREE.Group();
-  const tex = canvasTex(256, 256, (x, W, H) => {
-    x.fillStyle = '#95866e'; x.fillRect(0, 0, W, H);
-    for (let i = 0; i < 4000; i++) { const c = 105 + Math.random() * 75 | 0; x.fillStyle = `rgba(${c},${c - 12},${c - 30},.55)`; x.fillRect(Math.random() * W, Math.random() * H, 1.5, 1.5); }   // 泥の粒
-    for (let i = 0; i < 220; i++) { x.fillStyle = 'rgba(70,58,44,.5)'; x.beginPath(); x.arc(Math.random() * W, Math.random() * H, Math.random() * 2.5 + 0.8, 0, 7); x.fill(); }   // 小さな穴
-  });
-  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, side: THREE.DoubleSide });
-  const seed = Math.random() * 10, v = new THREE.Vector3();
-  // 中心の小さな塊
-  const core = new THREE.IcosahedronGeometry(0.16, 3), cp = core.attributes.position;
-  for (let i = 0; i < cp.count; i++) { v.fromBufferAttribute(cp, i); const k = 1 + 0.2 * Math.sin(v.x * 30 + seed) * Math.sin(v.y * 25); cp.setXYZ(i, v.x * k, v.y * k * 0.8, v.z * k); }
-  core.computeVertexNormals();
-  const coreM = new THREE.Mesh(core, mat); coreM.position.y = 0.14; g.add(coreM);
-  // 折り重なった薄い板（縁が波打つ、ゆがんだ扇形）
-  for (let i = 0; i < 14; i++) {
-    const geo = new THREE.CircleGeometry(0.2 + Math.random() * 0.12, 24, 0, Math.PI * (0.8 + Math.random() * 0.5));
-    const p = geo.attributes.position;
-    for (let k = 0; k < p.count; k++) {
-      v.fromBufferAttribute(p, k); const rr = Math.hypot(v.x, v.y);
-      p.setXYZ(k, v.x, v.y, 0.05 * Math.sin(Math.atan2(v.y, v.x) * 7 + seed + i) * rr / 0.25 + 0.06 * rr * rr / 0.06);   // 縁ほど波打って反る
+  const g = new THREE.Group(), seed = Math.random() * 100;
+  const tex = sharedTex('xeno2', () => { const t = canvasTex(256, 256, (x, W, H) => {   // 同じ模様の画像を、すべてのかたまりで使い回す
+    x.fillStyle = '#6b5e4b'; x.fillRect(0, 0, W, H);
+    for (let i = 0; i < 6000; i++) { const c = 75 + Math.random() * 70 | 0; x.fillStyle = `rgba(${c},${c - 12},${c - 30},.55)`; x.fillRect(Math.random() * W, Math.random() * H, 1.5, 1.5); }   // 泥の粒
+    for (let i = 0; i < 420; i++) { x.fillStyle = `rgba(52,42,32,${0.4 + Math.random() * 0.35})`; x.beginPath(); x.arc(Math.random() * W, Math.random() * H, Math.random() * 2.2 + 0.6, 0, 7); x.fill(); }   // 小さな穴
+  }); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3); return t; });
+  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 });
+  // なめらかな 3 次元のノイズ（-1〜1）
+  const hsh = (x, y, z) => { const v = Math.sin(x * 127.1 + y * 311.7 + z * 74.7 + seed) * 43758.5453; return v - Math.floor(v); };
+  const vn = (x, y, z) => { const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z), fx = x - ix, fy = y - iy, fz = z - iz, u = fx * fx * (3 - 2 * fx), w = fy * fy * (3 - 2 * fy), t = fz * fz * (3 - 2 * fz), L = (a, b, k) => a + (b - a) * k;
+    return 2 * L(L(L(hsh(ix, iy, iz), hsh(ix + 1, iy, iz), u), L(hsh(ix, iy + 1, iz), hsh(ix + 1, iy + 1, iz), u), w), L(L(hsh(ix, iy, iz + 1), hsh(ix + 1, iy, iz + 1), u), L(hsh(ix, iy + 1, iz + 1), hsh(ix + 1, iy + 1, iz + 1), u), w), t) - 1; };
+  const lobe = (r, cx, cy, cz, sq) => {                                   // 1 つのこぶ: 入り組んだひだ（尾根のノイズ）と、細かいでこぼこ
+    const geo = new THREE.IcosahedronGeometry(1, 5).rotateZ(1.2 + hsh(cx, cz, 5)).rotateX(0.7), p = geo.attributes.position, d = new THREE.Vector3(), keys = [];   // 模様の画像の極（筋が集まる所）を、上から見えない向きへ
+    for (let i = 0; i < p.count; i++) {
+      d.fromBufferAttribute(p, i).normalize(); keys.push(`${d.x.toFixed(4)},${d.y.toFixed(4)},${d.z.toFixed(4)}`);
+      const ridge = 1 - Math.abs(vn(d.x * 2.6 + cx * 7, d.y * 2.6, d.z * 2.6)), fine = vn(d.x * 9 + 3, d.y * 9, d.z * 9);
+      const k = 1 + 0.45 * ridge * ridge * ridge - 0.14 + 0.05 * fine, y = d.y * k * sq;   // 深く入り組んだひだ
+      p.setXYZ(i, cx + d.x * k * r, cy + Math.max(-0.35, y) * r, cz + d.z * k * r);   // 下は海底に座る
     }
-    geo.computeVertexNormals();
-    const plate = new THREE.Mesh(geo, mat);
-    const a = i / 14 * Math.PI * 2 + seed + Math.random() * 0.3;
-    plate.position.set(Math.cos(a) * 0.06, 0.08 + Math.random() * 0.16, Math.sin(a) * 0.06);
-    plate.rotation.set(-Math.PI / 2 + 0.6 + Math.random() * 0.7, a, Math.random() * 0.6);
-    g.add(plate);
-  }
+    // 同じ位置の頂点の向きをそろえて、なめらかな陰影にする
+    const acc = new Map(), A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), N = new THREE.Vector3();
+    for (let i = 0; i < p.count; i += 3) { A.fromBufferAttribute(p, i); B.fromBufferAttribute(p, i + 1); C.fromBufferAttribute(p, i + 2); N.crossVectors(B.sub(A), C.sub(A)); for (let q = 0; q < 3; q++) { const a = acc.get(keys[i + q]) || [0, 0, 0]; a[0] += N.x; a[1] += N.y; a[2] += N.z; acc.set(keys[i + q], a); } }
+    const nn = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const a = acc.get(keys[i]), l = Math.hypot(...a) || 1; nn.set([a[0] / l, a[1] / l, a[2] / l], i * 3); }
+    geo.setAttribute('normal', new THREE.BufferAttribute(nn, 3));
+    const m = new THREE.Mesh(geo, mat); g.add(m);
+  };
+  lobe(0.26, 0, 0.17, 0, 0.8);                                          // まん中の大きなこぶ
+  for (let i = 0; i < 3; i++) { const a = seed + i * 2.1, rr = 0.13 + 0.05 * hsh(i, 1, 2); lobe(rr, Math.cos(a) * 0.24, 0.1, Math.sin(a) * 0.24, 0.85); }   // まわりにくっついた小さなこぶ
   g.scale.setScalar(size);
   return { group: g, animate() {} };
 }

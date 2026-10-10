@@ -378,11 +378,76 @@ function fadeByDistance(m, key) {
 bedMat.transparent = true;                                             // 縁を透明にできるように（ふだんは不透明のまま）
 const bed = withCaustics(new THREE.Mesh(bedGeo, bedMat));
 bed.visible = false; bed.receiveShadow = true; scene.add(bed);
-// 岩場に転がる岩（形を少しずつ変えた多面体をまとめて描く）
+// 岩場に転がる岩（形をまとめて描き、岩ごとに向き・大きさ・縦横の比を変える）。
+// 丸みのある石灰岩の塊（サンゴのかけらが固まったもの）: 大小のこぶと、割れてできた平らな面。陰影はなめらかに（角ばった多面体に見えないように）
 const ROCK_MAX = 220;
-const rockGeo = new THREE.IcosahedronGeometry(1, 2);
-{ const p = rockGeo.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const k = 0.8 + 0.35 * Math.abs(Math.sin(v.x * 5.1 + v.y * 3.7) * Math.cos(v.z * 4.3)); p.setXYZ(i, v.x * k, v.y * k * 0.7, v.z * k); } rockGeo.computeVertexNormals(); }
-const rocks = new THREE.InstancedMesh(rockGeo, new THREE.MeshStandardMaterial({ map: rockTex, roughness: 0.95 }), ROCK_MAX);
+// 岩とかたまりのサンゴの面の細かさ（画質で変える。低: 粗く軽い / 高: なめらか）
+const GEO_DETAIL = S && S.quality === 'low' ? 3 : S && S.quality === 'mid' ? 4 : 5;
+const rnoise = (() => {                                                 // なめらかな 3 次元のノイズ（-1〜1）と、それを重ねたもの
+  const h = (x, y, z) => { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); };
+  const n = (x, y, z) => { const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z), fx = x - ix, fy = y - iy, fz = z - iz, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy), w = fz * fz * (3 - 2 * fz), L = (a, b, t) => a + (b - a) * t;
+    return 2 * L(L(L(h(ix, iy, iz), h(ix + 1, iy, iz), u), L(h(ix, iy + 1, iz), h(ix + 1, iy + 1, iz), u), v), L(L(h(ix, iy, iz + 1), h(ix + 1, iy, iz + 1), u), L(h(ix, iy + 1, iz + 1), h(ix + 1, iy + 1, iz + 1), u), v), w) - 1; };
+  return { n, fbm: (x, y, z, o = 4) => { let a = 0, f = 1, s = 0.5; for (let i = 0; i < o; i++) { a += s * n(x * f, y * f, z * f); f *= 2.03; s *= 0.5; } return a; } };
+})();
+// 同じ位置の頂点（面ごとに分かれている）の向きをそろえて、なめらかな陰影にする
+function smoothNormals(g, keyOf) {
+  const p = g.attributes.position, acc = new Map(), keys = [], A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), N = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) keys.push(keyOf(i));
+  for (let i = 0; i < p.count; i += 3) {
+    A.fromBufferAttribute(p, i); B.fromBufferAttribute(p, i + 1); C.fromBufferAttribute(p, i + 2); N.crossVectors(B.sub(A), C.sub(A));   // 面の大きさで重みづけ
+    for (let k = 0; k < 3; k++) { const a = acc.get(keys[i + k]) || [0, 0, 0]; a[0] += N.x; a[1] += N.y; a[2] += N.z; acc.set(keys[i + k], a); }
+  }
+  const nn = new Float32Array(p.count * 3);
+  for (let i = 0; i < p.count; i++) { const a = acc.get(keys[i]), l = Math.hypot(a[0], a[1], a[2]) || 1; nn.set([a[0] / l, a[1] / l, a[2] / l], i * 3); }
+  g.setAttribute('normal', new THREE.BufferAttribute(nn, 3));
+}
+const rockGeo = (() => {
+  const g = new THREE.IcosahedronGeometry(1, GEO_DETAIL), p = g.attributes.position, d = new THREE.Vector3(), keys = [];
+  const cuts = [[0.3, 0.9, 0.2, 0.86], [-0.8, 0.35, 0.4, 0.88], [0.5, 0.1, -0.85, 0.9], [-0.3, -0.2, -0.9, 0.92]].map(([x, y, z, o]) => [new THREE.Vector3(x, y, z).normalize(), o]);   // 割れてできた平らな面
+  const ao = new Float32Array(p.count), alg = new Float32Array(p.count * 3);
+  for (let i = 0; i < p.count; i++) {
+    d.fromBufferAttribute(p, i).normalize(); keys.push(`${d.x.toFixed(4)},${d.y.toFixed(4)},${d.z.toFixed(4)}`);
+    const big = rnoise.fbm(d.x * 1.3 + 3, d.y * 1.3, d.z * 1.3, 3), fine = rnoise.fbm(d.x * 5 + 7, d.y * 5, d.z * 5, 3);
+    let r = 1 + 0.24 * big + 0.06 * fine;
+    for (const [n, o] of cuts) { const c = d.dot(n); if (c > 0.05) r = Math.min(r, (o + 0.04 * fine) / c + 0.02 * (1 - c)); }   // 平らな面（縁は少し丸く）
+    const y = d.y * r * 0.62; p.setXYZ(i, d.x * r, y < -0.3 ? -0.3 + (y + 0.3) * 0.3 : y, d.z * r);   // 下は平たく（海底に座る）
+    ao[i] = Math.min(1.05, Math.max(0.45, 0.82 + 2.2 * (0.06 * fine) + 0.35 * big)) * (y < -0.15 ? 0.75 : 1);   // くぼみと底は暗い
+  }
+  smoothNormals(g, i => keys[i]);
+  const nr = g.attributes.normal;
+  for (let i = 0; i < p.count; i++) {                                  // 浅い海の岩の色: 上は芝のような藻（黄土〜緑がかった褐色）、横は石灰藻の淡い桃色のしみ、下は灰色
+    d.fromBufferAttribute(p, i); const up = nr.getY(i), pk = rnoise.fbm(d.x * 3 + 11, d.y * 3, d.z * 3, 3), mo = rnoise.fbm(d.x * 6 + 5, d.y * 6, d.z * 6, 2);
+    let c = up > 0.35 ? [1.35, 1.33, 0.92] : [1.4, 1.3, 1.22];
+    c = c.map((v, k) => v + (up > 0.35 ? [0.05, 0.12, -0.04][k] * mo * 2 : 0));
+    if (pk > 0.12 && up < 0.7) c = c.map((v, k) => v + [0.45, -0.05, 0.12][k] * Math.min(1, (pk - 0.12) * 5));
+    alg.set(c, i * 3);
+  }
+  g.setAttribute('aAo', new THREE.BufferAttribute(ao, 1)); g.setAttribute('aAlg', new THREE.BufferAttribute(alg, 3));
+  return g;
+})();
+const rockMat = new THREE.MeshStandardMaterial({ map: rockTex, roughness: 0.95 });
+rockMat.extensions = { derivatives: true };
+rockMat.onBeforeCompile = sh => {                                     // くぼみの暗さと、浅い海（サンゴ礁）の藻の色。表面のざらざらした凹凸（画素ごとに面の向きを揺らす）
+  sh.uniforms.uShallow = SHALLOW;
+  sh.vertexShader = 'attribute float aAo; attribute vec3 aAlg; varying float vAo; varying vec3 vAlg, vRP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vAo = aAo; vAlg = aAlg; vRP = position;');
+  sh.fragmentShader = 'uniform float uShallow; varying float vAo; varying vec3 vAlg, vRP;\n' + CORAL_NOISE + '\n' + sh.fragmentShader
+    .replace('#include <map_fragment>', '#include <map_fragment>\n diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.295, 0.29), uShallow * 0.7);')   // 浅い海では、深海の岩の細かい斑点を弱める（藻に覆われている）
+    .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= vAo * mix(vec3(1.0), vAlg, uShallow);')
+    .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      {
+        float n1 = cdN(vRP * 3.0), n2 = cdN(vRP * 8.0 + 3.0), n3 = cdN(vRP * 20.0 + 7.0);
+        float a2 = 1.0 - smoothstep(0.15, 0.45, length(fwidth(vRP * 8.0))), a3 = 1.0 - smoothstep(0.15, 0.45, length(fwidth(vRP * 20.0)));   // 遠くで画素より細かい凹凸は消す（ざらつきがちらつかないように）
+        float hgt = n1 * 0.5 + n2 * 0.3 * a2 + n3 * 0.15 * a3;   // 大小のでこぼこ
+        vec2 dH = vec2(dFdx(hgt), dFdy(hgt)) * 0.5;
+        vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition), r1 = cross(sy, normal), r2 = cross(normal, sx);
+        float det = dot(sx, r1);
+        if (abs(det) > 1e-12) normal = normalize(abs(det) * normal - sign(det) * (dH.x * r1 + dH.y * r2));
+        diffuseColor.rgb *= 0.85 + 0.25 * n1;
+        diffuseColor.rgb *= mix(vec3(1.0), mix(vec3(0.92, 0.95, 0.98), vec3(1.06, 1.02, 0.9), cdN(vRP * 2.5 + 11.0)), uShallow);   // 藻の付き方のむら
+      }`);
+};
+rockMat.customProgramCacheKey = () => 'rock2';
+const rocks = new THREE.InstancedMesh(rockGeo, rockMat, ROCK_MAX);
 fadeByDistance(rocks.material, 'rock');
 const rockCol = new THREE.Color();
 rocks.setColorAt(0, rockCol.setScalar(1));                          // 岩ごとの色を最初から使う（あとから足すと材質の作り直しが起きるため）。色の配列は数を 0 にする前に作る（0 だと空の配列になり、岩が真っ黒になる）
@@ -476,10 +541,13 @@ function radialGeo(detail, R, squash, base, shade) {
 const ao = y => 0.5 + 0.5 * Math.min(1, Math.max(0, (y + 0.1) / 0.6));     // 根元ほど暗い（すき間に光が届きにくい）
 const coralGeos = {
   // ハマサンゴ: 半分埋まった大きなかたまりに、丸いこぶがいくつも盛り上がる。くぼみは暗い
-  massive: radialGeo(2, v => 1 + 0.14 * Math.sin(v.x * 5.1 + 0.7) * Math.sin(v.z * 4.7 + 1.3) * Math.cos(v.y * 3.9) + 0.07 * Math.sin(v.x * 9.3 + v.z * 8.1 + v.y * 6.7),
-    0.72, -0.25, (d, v) => { const k = ao(v.y) * (0.85 + 0.6 * (Math.hypot(v.x, v.y / 0.72, v.z) - 1)); return [k, k, k]; }),
+  massive: (() => {
+    const lumps = [[0, 1, 0], [0.6, 0.7, 0.2], [-0.5, 0.75, 0.4], [0.1, 0.65, -0.7], [-0.6, 0.55, -0.45], [0.8, 0.3, -0.4], [-0.85, 0.3, 0.2], [0.35, 0.35, 0.85], [-0.2, 0.4, 0.9]].map(a => new THREE.Vector3(...a).normalize());
+    const R = v => { let r = 1 + 0.035 * rnoise.fbm(v.x * 4, v.y * 4, v.z * 4, 2); lumps.forEach((c, i) => { r += (0.1 + 0.03 * (i % 3)) * Math.exp(-(1 - v.dot(c)) / 0.035); }); return r; };   // 丸いこぶが盛り上がる
+    return radialGeo(GEO_DETAIL, R, 0.72, -0.25, (d, v) => { const k = ao(v.y) * (0.8 + 0.9 * (R(d) - 1.05)); return [k, k, k]; });
+  })(),
   // ノウサンゴ（キクメイシの仲間）: なめらかな丸い半球。脳のような溝は、表面の模様として描く（下のシェーダー）
-  brain: radialGeo(2, v => 1 + 0.03 * Math.sin(v.x * 4 + v.z * 3), 0.62, -0.2, (d, v) => { const k = ao(v.y); return [k, k, k]; }),
+  brain: radialGeo(Math.max(2, GEO_DETAIL - 1), v => 1 + 0.03 * Math.sin(v.x * 4 + v.z * 3), 0.62, -0.2, (d, v) => { const k = ao(v.y); return [k, k, k]; }),
   // テーブル状のミドリイシ: 太い足の上に、縁が少し反り上がった平たい板。上は明るく、裏は影で暗い
   table: (() => {
     const NR = 6, NA = 40, Rr = a => 1 + 0.1 * Math.sin(a * 5) + 0.05 * Math.sin(a * 13), parts = [];
@@ -520,7 +588,8 @@ const coralGeos = {
 const CORAL_DETAIL = {
   // ポリプの小さな穴（1〜2mm のくぼみ）が一面に並ぶ
   massive: `vec3 cp = vOP * 26.0, ci = floor(cp), cf = fract(cp) - 0.5 - (vec3(cdH(ci), cdH(ci + 7.1), cdH(ci + 3.3)) - 0.5) * 0.5;
-    float pit = 1.0 - smoothstep(0.08, 0.32, length(cf)); hgt = -pit * 0.6 + 0.25 * cdN(vOP * 7.0); shade = 1.0 - 0.3 * pit;`,
+    float aa = 1.0 - smoothstep(0.2, 0.6, length(fwidth(cp))), pit = (1.0 - smoothstep(0.08, 0.32, length(cf))) * aa, mot = cdN(vOP * 3.0);
+    hgt = -pit * 0.35 + 0.3 * cdN(vOP * 7.0); shade = (1.0 - 0.12 * pit) * (0.86 + 0.28 * mot); tint = mix(vec3(0.96, 1.0, 1.04), vec3(1.05, 1.0, 0.86), mot);`,
   // 脳のように曲がりくねった溝と峰: ほぼ平行な筋を、ゆっくり曲げる。溝の底は暗く緑がかり、峰の稜線は明るい
   brain: `float ph = (vOP.x * 0.8 + vOP.z * 0.6) * 40.0 + cdN(vOP * 2.6) * 22.0 + cdN(vOP * 6.0 + 3.0) * 6.0;
     float sn = sin(ph), aa = clamp(fwidth(ph) * 0.6, 0.0, 1.0);
@@ -532,7 +601,7 @@ const CORAL_DETAIL = {
     float top = smoothstep(0.42, 0.47, vOP.y); hgt = (rr * 0.5 + 0.35 * cdN(vOP * 25.0)) * top * aa; shade = 1.0 - 0.18 * (1.0 - rr) * top;`,
   // 枝の表面: 小さなポリプの突起（サンゴ個体）がびっしり
   branch: `vec3 cp = vOP * 55.0, ci = floor(cp), cf = fract(cp) - 0.5; float bump = 1.0 - smoothstep(0.1, 0.4, length(cf - (vec3(cdH(ci), cdH(ci + 5.0), cdH(ci + 2.0)) - 0.5) * 0.4));
-    hgt = bump * 0.5; shade = 0.9 + 0.12 * bump;`
+    bump *= 1.0 - smoothstep(0.2, 0.6, length(fwidth(cp))); hgt = bump * 0.5; shade = 0.9 + 0.12 * bump;`
 };
 const CORAL_NOISE = `
   float cdH(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }

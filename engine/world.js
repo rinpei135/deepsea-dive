@@ -362,7 +362,7 @@ const terrainMat = new THREE.ShaderMaterial({
   extensions: { derivatives: true },
   uniforms: {
     uCam: { value: new THREE.Vector3() }, uDive: { value: 0 }, uSonar: { value: 1 }, uTime: { value: 0 },
-    uFog: { value: new THREE.Color() }, uFogDen: { value: 0 }, uLampR: { value: 1 }, uCamDir: { value: new THREE.Vector3(0, 0, -1) },
+    uFog: { value: new THREE.Color() }, uFogDen: { value: 0 }, uFogDen2: { value: 0 }, uLampR: { value: 1 }, uCamDir: { value: new THREE.Vector3(0, 0, -1) },
     // ソナーの発信: xyz = 発信位置, w = 発信からの経過秒 (<0 は未使用)
     uPing: { value: [0, 1, 2, 3, 4, 5].map(() => new THREE.Vector4(0, 0, 0, -1)) },
     // 水中の音速 約1,500 m/秒 = 1.5 km/秒（シーンの水平1単位 = 1km）。届く範囲は60km
@@ -375,6 +375,8 @@ const terrainMat = new THREE.ShaderMaterial({
     uCurv: { value: 0 },
     // 1 = 海底を強調しない実際の深さで描く（sea.js の「浅瀬の海底を透かす」画像だけ。生き物・サンゴは実際の深さで描くので、そろえる）
     uFlat: { value: 0 },
+    // 近くの海底（creatures.js が細かく描く、半径約 90m）の下へ、粗い地形を沈める（x, z: 中心 km、z: 半径 km、w: 沈める深さ km。0 なら沈めない）
+    uSink: { value: new THREE.Vector4(0, 0, 0, 0) },
     // 細かい地形の範囲（x の最小・最大, z の最小・最大。最大 4 か所）。粗い地形はこの中を描かない
     uHoles: { value: [0, 1, 2, 3].map(i => DETAIL[i] ? new THREE.Vector4(toX(DETAIL[i].lon0), toX(DETAIL[i].lon1), toZ(DETAIL[i].lat0), toZ(DETAIL[i].lat1)) : new THREE.Vector4(1e9, -1e9, 1e9, -1e9)) },
     uGarden: { value: [0, 1, 2, 3].map(i => GARDENS[i] ? new THREE.Vector4(GARDENS[i].x, GARDENS[i].z, GARDENS[i].r, GARDENS[i].st) : new THREE.Vector4(0, 0, 0, 0)) },
@@ -382,15 +384,16 @@ const terrainMat = new THREE.ShaderMaterial({
   },
   vertexShader: `
     attribute float elev; attribute float det; varying vec3 vW; varying vec3 vN; varying float vE; varying float vDet;
-    uniform float uFlat, uEx;
+    uniform float uFlat, uEx; uniform vec4 uSink;
     ${CURVE_GLSL}
     ${EXDEPTH_GLSL}
     void main(){ vE = elev; vDet = det; vec4 w = modelMatrix * vec4(position, 1.0);
       if (uFlat > 0.5 && elev < 0.0) w.y += (elev + exDepth(-elev, uEx)) / 1000.0;   // 強調した深さ → 実際の深さ（スカートの垂らし分はそのまま）
+      if (uSink.w > 0.0) w.y -= uSink.w * (1.0 - smoothstep(uSink.z * 0.85, uSink.z, length(w.xz - uSink.xy)));   // 粗い地形が、近くの細かい海底から突き出て見えないように
       vW = w.xyz; vN = normalize(normal);
       gl_Position = projectionMatrix * viewMatrix * curved(w); }`,
   fragmentShader: `
-    uniform vec3 uCam; uniform vec3 uCamDir; uniform float uDive, uSonar, uTime, uFogDen, uLampR, uPingSpeed, uHold, uRange, uEx; uniform vec3 uFog; uniform vec4 uPing[6]; uniform vec4 uChest; uniform vec4 uHoles[4]; uniform float uReal, uUpw; uniform vec3 uSunDir;
+    uniform vec3 uCam; uniform vec3 uCamDir; uniform float uDive, uSonar, uTime, uFogDen, uFogDen2, uLampR, uPingSpeed, uHold, uRange, uEx; uniform vec3 uFog; uniform vec4 uPing[6]; uniform vec4 uChest; uniform vec4 uHoles[4]; uniform float uReal, uUpw; uniform vec3 uSunDir;
     uniform sampler2D uShA, uShG; uniform vec4 uShAm, uShGm, uShGb; uniform vec2 uShAs, uShGs;
     varying vec3 vW; varying vec3 vN; varying float vE; varying float vDet;
     ${COAST_GLSL}
@@ -580,7 +583,8 @@ const terrainMat = new THREE.ShaderMaterial({
         // ライトの光も、行って戻る間に赤から吸われる（近景の生き物と同じ割合）
         col = sed * (sun + lamp * exp(-vec3(0.06, 0.02, 0.012) * dist * 2000.0));
         float vy = normalize(vW - uCam).y, up = vy > 0.0 ? 1.0 + 1.3 * pow(vy, 1.5) : mix(1.0, 0.3, smoothstep(0.0, 0.9, -vy));
-        col = mix(col, uFog * mix(1.0, up, uUpw), 1.0 - exp(-dist * uFogDen));
+        // 近くの海底（creatures.js）が描かれているときは、その霧（距離の 2 乗で濃くなる）にもそろえる。遠くの粗い地形だけが、近くの海底の外にうっすら見えないように
+        col = mix(col, uFog * mix(1.0, up, uUpw), max(1.0 - exp(-dist * uFogDen), 1.0 - exp(-pow(dist * uFogDen2, 2.0))));
         // ソナー: 音の波面が届いた地形を一定時間だけ浮かび上がらせる
         float seen = 0.0, front = 0.0;
         for (int i = 0; i < 6; i++) {

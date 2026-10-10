@@ -258,11 +258,15 @@ function frame(now) {
   // 見通し: 外洋の澄んだ水でも、水中で見えるのは横に数十 m まで（km あたりの濃さ 45 = 約 65m でほぼ見えない）。ソナーで浮かぶ地形は霧の後に重ねるので見える
   const clear = 1 - Math.min(1, Math.max(0, (Math.max(d, floorD) - 40) / 40));   // 浅い澄んだ礁の海は、遠くまで見える（creatures.js と同じ）
   u.uFog.value.copy(water); u.uFogDen.value = (45 - 23 * clear + silt * 25) * (1 + 2.2 * turb);
+  const LF = window.__LIFE, bedOn = under && LF && LF.bed.visible;
+  u.uFogDen2.value = bedOn ? LF.reefApi.scene.fog.density * 1000 : 0;   // 近くの海底の霧の濃さ（km あたり）
+  u.uSink.value.set(S.x, S.z, 0.086, bedOn ? 0.006 : 0);              // 近くの海底の下へ、粗い地形を 6m 沈める
   u.uPingSpeed.value = UI.soundSpeed(Math.max(0, d)) / 1000;          // ソナーの波面は、今いる深さの音速で広がる（km/秒）
   u.uLampR.value = d > 150 && S.lamp ? 0.045 : 0;                 // ライトの届く距離 (km)。実際の潜水艇のライトは数十 m
   camera.getWorldDirection(u.uCamDir.value);
   // ソナーで浮かぶ地形: 日の光が届く浅い海では目で見える景色を邪魔しないよう薄く、暗い深さでははっきり
-  u.uSonar.value = 0.2 + 0.8 * Math.min(1, Math.max(0, (d - 50) / 250)); u.uEx.value = state.ex;
+  // 近くの海底（細かい地形）が見える浅い所（25m より浅い所）では、遠くの粗い地形に重ねない（粗い三角形やソナーの波面の線が、景色の中に浮いて見えるので）。宝箱は 2,000m より深い所だけ
+  u.uSonar.value = (0.2 + 0.8 * Math.min(1, Math.max(0, (d - 50) / 250))) * (bedOn ? Math.min(1, Math.max(0, (d - 25) / 35)) : 1); u.uEx.value = state.ex;
   snow.uniforms.uAlpha.value = under ? Math.min(1, Math.max(0, (d - 40) / 300)) * 0.3 : 0;   // 近くのマリンスノーは creatures.js がライトに合わせて描く
   glow.uniforms.uAlpha.value = under ? Math.min(1, Math.max(0, (d - 200) / 400)) * (1 - Math.min(1, Math.max(0, (d - 5000) / 2000))) : 0;
   [snow, glow].forEach(m => { m.uniforms.uCam.value.copy(camera.position); m.uniforms.uTime.value = t; });
@@ -289,6 +293,7 @@ function frame(now) {
   window.__LIFE?.render();          // 生き物（近景）を重ねて描く
   window.__POST?.end();             // にじみと明るさの変換をして画面へ
   window.__ZUKAN?.afterRender(renderer.domElement);   // 撮影はここで（描いた直後でないと画面を写せない）
+  window.__UI?.afterRender(renderer.domElement);     // 画像保存も
   requestAnimationFrame(frame);
 }
 

@@ -91,7 +91,7 @@ function syncMode() {
   if ($('shot')) $('shot').hidden = !dive;                            // 撮影ボタンは、生き物がいる海だけ（zukan.js が外す）
   $('panel').classList.toggle('dive', dive);
   $('hint').textContent = dive
-    ? '移動: W A S D（毎秒10m） · 上昇 E/Space · 下降 Q/C · ホイールで深さを大きく変える · L でライト · P で撮影 · ドラッグで見回す'
+    ? '移動: W A S D（毎秒10m） · 上昇 E/Space · 下降 Q/C · ホイールで深さを大きく変える · L でライト · P で撮影 · O で画像保存 · ドラッグで見回す'
     : 'ドラッグで回転 · ホイールで拡大 · 右ドラッグで移動 · ルーラーをクリックでその深さへ潜航';
   syncGo();
 }
@@ -419,5 +419,26 @@ dmap.addEventListener('pointerup', e => {
 dmap.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); pinch = 0; });
 addEventListener('resize', () => drawMap());
 
-window.__UI = { autoRes, get autoScale() { return autoScale; }, pins, divePin, toast, splash, pingSound, soundSpeed, renderPanel, renderRuler, drawMap, syncGo, syncMode, nf };
+// ---------- 画像保存: 今の景色（3D の絵だけ。ボタンや計器は入らない）を、高い解像度（横 3840 画素ほど）の画像にして保存する ----------
+// 描画の細かさを一時的に上げて 1 枚描き、描いた直後の画面を写して、元に戻す
+let photoReq = null;
+function savePhoto() {
+  if (photoReq) return;
+  const R = T.renderer, pr0 = R.getPixelRatio(), max = (R.capabilities && R.capabilities.maxTextureSize) || 4096;
+  const k = Math.min(Math.max(pr0, 3840 / innerWidth), (max - 16) / Math.max(innerWidth, innerHeight), 4);
+  R.setPixelRatio(k); R.setSize(innerWidth, innerHeight); window.__POST && window.__POST.apply();
+  photoReq = { skip: 2, fn: canvas => {                               // 大きくしてから 2 枚目の絵を写す（光のにじみなどの画像も大きさがそろってから）
+    const url = canvas.toDataURL('image/jpeg', 0.95), w = canvas.width, h = canvas.height;
+    R.setPixelRatio(pr0); R.setSize(innerWidth, innerHeight); window.__POST && window.__POST.apply();
+    const d = new Date(), z = n => String(n).padStart(2, '0');
+    const a = document.createElement('a'); a.href = url; a.download = `深海ダイブ_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.jpg`;
+    document.body.appendChild(a); a.click(); a.remove();
+    toast(`画像を保存しました（${w}×${h}）`);
+  } };
+}
+$('photo').onclick = savePhoto;
+addEventListener('keydown', e => { if (e.code === 'KeyO' && !e.repeat && !e.target.closest?.('input, textarea')) savePhoto(); });
+// 描いた直後に nav.js から呼ばれる
+function afterRender(canvas) { if (photoReq && photoReq.skip-- <= 0) { const f = photoReq.fn; photoReq = null; f(canvas); } }
+window.__UI = { autoRes, get autoScale() { return autoScale; }, pins, divePin, toast, splash, pingSound, soundSpeed, renderPanel, renderRuler, drawMap, syncGo, syncMode, nf, afterRender, savePhoto };
 })();

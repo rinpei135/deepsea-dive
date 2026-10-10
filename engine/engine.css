@@ -216,7 +216,8 @@ body { background: var(--abyss); color: var(--ink); font-family: var(--sans); ov
 /* スマホ（縦）と、高さの低い画面（スマホ横向き）: 景色が主役になるよう、普段は最小限だけ表示 */
 @media (max-width: 760px), (max-height: 520px) {
   #hint, .sep { display: none; }
-  #tabs { top: auto; bottom: calc(118px + env(safe-area-inset-bottom, 0px)); left: 12px; transform: none; }
+  /* 下の操作ボタンの高さ（折り返しで 1〜3 段に変わる）は ui.js が測り、--ctl-top（ボタンの上端から画面の下まで）と --stack-top（移動パッドの上端まで）に入れる */
+  #tabs { top: auto; bottom: calc(var(--stack-top, 118px) + 6px); left: 12px; transform: none; }
   #divemap .zoom { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); right: 12px; }
   #dmapCard { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
   /* 計器パネル: 普段は「深さ＋層の名前」の1行。「詳細」で開く */
@@ -233,7 +234,7 @@ body { background: var(--abyss); color: var(--ink); font-family: var(--sans); ov
   #panel.open #zone p { display: block; }
   #panel.open { max-height: 45%; }
   /* 深度ルーラー: 細く、ボタンと重ならない高さに */
-  #ruler { top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; width: 54px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  #ruler { top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; width: 54px; bottom: calc(var(--ctl-top, 76px) + 6px); }
   #ruler .bandLbl, #ruler .mark span { display: none; }
   #ruler .mark { left: 2px; right: 14px; }
   #ruler .band { width: 12px; }
@@ -247,21 +248,17 @@ body { background: var(--abyss); color: var(--ink); font-family: var(--sans); ov
   #controls:not(.open) .more { display: none; }
   #controls .btn { padding: 7px 9px; }
   /* 移動パッド: 操作ボタンのすぐ上、左下 */
-  #pad { left: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); padding: 6px; gap: 5px; grid-template-columns: repeat(3, 42px); }
+  #pad { left: 12px; bottom: calc(var(--ctl-top, 76px) + 6px); padding: 6px; gap: 5px; grid-template-columns: repeat(3, 42px); }
   #pad .btn { padding: 7px 0; }
   #toast, #toast.show { top: calc(64px + env(safe-area-inset-top, 0px)); transform: translate(-50%, 0); font-size: 12px; }
-  #quest { left: 12px; right: 12px; width: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
-  #lifeSel { left: 12px; right: 12px; width: auto; transform: none; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-height: 60%; }
-  #alt { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); padding: 4px 10px; }
+  #quest { left: 12px; right: 12px; width: auto; bottom: calc(var(--ctl-top, 76px) + 6px); }
+  #lifeSel { left: 12px; right: 12px; width: auto; transform: none; bottom: calc(var(--ctl-top, 76px) + 6px); max-height: 60%; }
+  #alt { left: auto; right: 74px; transform: none; bottom: calc(var(--ctl-top, 76px) + 6px); padding: 4px 10px; }   /* 移動パッド（左下）と重ならないよう、右へ */
   #alt b { font-size: 16px; }
   #zukan { left: 12px; right: 12px; top: calc(12px + env(safe-area-inset-top, 0px)); bottom: var(--zk-bottom, calc(76px + env(safe-area-inset-bottom, 0px))); width: auto; max-height: none; transform: none; padding: 12px; }
   #zukan .cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
   #award, #award.show { top: calc(112px + env(safe-area-inset-top, 0px)); transform: translate(-50%, 0); padding: 10px 16px; }
   #award b { font-size: 17px; }
   #echo { top: auto; bottom: calc(190px + env(safe-area-inset-bottom, 0px)); white-space: normal; }
-}
-/* 設定を開いたときは、パッドを操作ボタンの上に逃がす */
-@media (max-width: 760px), (max-height: 520px) {
-  body.more-open #pad { bottom: calc(200px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { #toast, #splash, #award { transition: none; } }

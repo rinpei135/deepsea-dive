@@ -438,6 +438,15 @@ function savePhoto() {
 }
 $('photo').onclick = savePhoto;
 addEventListener('keydown', e => { if (e.code === 'KeyO' && !e.repeat && !e.target.closest?.('input, textarea')) savePhoto(); });
+// スマホの配置: 下の操作ボタンは、画面の幅によって 1〜3 段に折り返す。その高さを測って、移動パッド・タブ・深さの目盛りなどを、すぐ上に置く（engine.css）
+function stackVars() {
+  const root = document.documentElement.style, ctl = Math.round(innerHeight - $('controls').getBoundingClientRect().top);
+  root.setProperty('--ctl-top', ctl + 'px');
+  const p = $('pad'), pr = !p.hidden && getComputedStyle(p).display !== 'none' ? p.getBoundingClientRect() : null;   // 移動パッドは潜航中だけ（画面に固定した部品は offsetParent が空なので、表示の有無で見る）
+  root.setProperty('--stack-top', (pr && pr.height ? Math.round(innerHeight - pr.top) : ctl) + 'px');
+}
+if (window.ResizeObserver) { const ro = new ResizeObserver(stackVars); ro.observe($('controls')); ro.observe($('pad')); }
+addEventListener('resize', stackVars); stackVars();
 // 描いた直後に nav.js から呼ばれる
 function afterRender(canvas) { if (photoReq && photoReq.skip-- <= 0) { const f = photoReq.fn; photoReq = null; f(canvas); } }
 window.__UI = { autoRes, get autoScale() { return autoScale; }, pins, divePin, toast, splash, pingSound, soundSpeed, renderPanel, renderRuler, drawMap, syncGo, syncMode, nf, afterRender, savePhoto };

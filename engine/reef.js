@@ -97,16 +97,21 @@ function fishGeo(o, lod = 0) {                                          // lod 1
     return Math.max(ped * hgt * (1 - t), hgt * (t < mx ? back : front));
   };
   const Wd = u => wid * Math.pow(H(u) / hgt, 0.8);
-  const NU = lod ? 10 : 22, NV = lod ? 8 : 14, pos = [], col = [], idx = [];
+  const lo = window.__DIVE && window.__DIVE.quality === 'low';           // 画質「低」では、近く用も面を少なく（軽く）
+  const NU = lod ? 10 : lo ? 22 : 32, NV = lod ? 8 : lo ? 14 : 28, pos = [], col = [], idx = [];   // 近く用は面を細かく（模様の境目がガタガタにならないように）
+  // 模様は、まわりの点の色も平均して決める（はっきりした境目の模様が、面の大きさの階段にならないように）
+  const patAA = (u, cy) => { if (lod) return pat(u, cy); const du = (1 - U0) / NU * 0.35, dv = 0.5 / NV; let r = 0, g = 0, b = 0;
+    for (const a of [-1, 0, 1]) for (const c of [-1, 0, 1]) { const q = pat(u + a * du, Math.max(-1, Math.min(1, cy + c * dv))); r += q[0]; g += q[1]; b += q[2]; } return [r / 9, g / 9, b / 9]; };
   for (let i = 0; i <= NU; i++) {
     const u = U0 + (1 - U0) * i / NU, h = H(u), w = Wd(u), c = h * top * 0.5;
     for (let j = 0; j <= NV; j++) {
       const th = j / NV * Math.PI * 2, cy = Math.cos(th), sz = Math.sin(th);
       const y = c + cy * h * 0.5 * (cy > 0 ? 1 + top * 0.3 : 1 - top * 0.3), z = sz * w * 0.5 * (0.75 + 0.25 * Math.sqrt(Math.abs(sz)));   // 背と腹は少し細く（平たい魚らしい断面）
       pos.push(u - 0.5, y, z);
-      let cc = pat(u, cy);
+      let cc = patAA(u, cy);
       cc = cc.map(v => v * (0.82 + 0.22 * (cy * 0.5 + 0.5)) + (cy < -0.4 ? 0.06 : 0));   // 背は少し濃く、腹は明るい（カウンターシェーディング）
-      if (Math.abs(u - 0.74) < 0.012 && Math.abs(cy) < 0.85) cc = cc.map(v => v * 0.8);   // えらぶたの線
+      if (Math.abs(cy) < 0.85) cc = cc.map(v => v * (1 - 0.22 * Math.exp(-(((u - 0.74 - 0.02 * cy * cy) / 0.014) ** 2))));   // えらぶたの線（弓なり）
+      if (!lod && u > 0.955 && cy > -0.45 && cy < -0.02) cc = cc.map(v => v * (1 - 0.45 * Math.min(1, (u - 0.955) / 0.02)));   // 口の線（口先の少し下）
       col.push(...cc);
       if (i < NU && j < NV) { const a = i * (NV + 1) + j, b = a + NV + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
     }
@@ -119,7 +124,8 @@ function fishGeo(o, lod = 0) {                                          // lod 1
     const g = new THREE.BufferGeometry(), p = [], c = [], ix = [], N = base.length - 1;
     for (let i = 0; i <= N; i++) {
       p.push(...base[i], ...tip[i]);
-      c.push(...fin(part, 0), ...fin(part, 1));
+      const ray = part === 'pectoral' || part === 'filament' || part === 'finlet' ? 1 : (i % 2 ? 0.86 : 1);   // ひれの筋（軟条）を濃淡で
+      c.push(...fin(part, 0).map(v => v * ray), ...fin(part, 1).map(v => v * ray));
       if (i < N) { const a = i * 2; ix.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
     }
     g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(c, 3)); g.setIndex(ix); g.computeVertexNormals();
@@ -127,7 +133,7 @@ function fishGeo(o, lod = 0) {                                          // lod 1
   };
   const topY = u => H(u) * top * 0.5 + H(u) * 0.5 * (1 + top * 0.3), botY = u => H(u) * top * 0.5 - H(u) * 0.5 * (1 - top * 0.3);
   const longFin = ([u0, u1, fh, front = 1], up) => {                     // 背びれ・しりびれ: 前の方が高く、後ろへ向かって低く丸くなる。先は後ろへ流れる
-    const b = [], t = [], N = lod ? 6 : 16;
+    const b = [], t = [], N = lod ? 6 : 28;
     for (let i = 0; i <= N; i++) {
       const s = i / N, u = u1 - (u1 - u0) * s, y = up ? topY(u) : botY(u);   // s: 0 前 〜 1 後ろ
       const env = Math.pow(Math.sin(Math.PI * Math.min(1, s * 1.08)), 0.55) * (1 - 0.35 * s) * (1 + (front - 1) * Math.exp(-(((s - 0.12) / 0.12) ** 2)));
@@ -146,7 +152,7 @@ function fishGeo(o, lod = 0) {                                          // lod 1
       parts.push(strip([[u - 0.5 + 0.012, y * 0.97, 0], [u - 0.5 - 0.004, y * 0.97, 0]], [[u - 0.5 - 0.004, y + sg * sz, 0], [u - 0.5 - 0.012, y + sg * sz * 0.4, 0]], 'finlet')); });
   }
   // 尾びれ: 付け根の上下から、扇の縁へ。fork で真ん中がへこみ、lobe で上下の端が伸びる
-  { const T = Object.assign({ len: 0.28, fork: 0.3, lobe: 0, round: 0 }, o.tail), N = lod ? 6 : 12, b = [], t = [], hb = H(U0) * 0.5;
+  { const T = Object.assign({ len: 0.28, fork: 0.3, lobe: 0, round: 0 }, o.tail), N = lod ? 6 : 24, b = [], t = [], hb = H(U0) * 0.5;
     for (let i = 0; i <= N; i++) {
       const s = i / N * 2 - 1, up = s > 0 ? 1 + (T.upper || 0) : 1 - (T.upper || 0) * 0.4, edge = T.len * up * (1 - T.fork * (1 - Math.abs(s) ** 1.5) + T.lobe * Math.abs(s) ** 4 - T.round * Math.abs(s) ** 2 * 0.3);
       b.push([U0 - 0.5 + 0.01, s * hb, 0]);
@@ -159,18 +165,22 @@ function fishGeo(o, lod = 0) {                                          // lod 1
     for (let i = 0; i <= N; i++) { const s2 = i / N; b.push([u - 0.5 - s2 * 0.12, y, z]); t.push([u - 0.5 - 0.05 - L * 0.55 - s2 * 0.1, y - L * 0.25, z + sd * L * (1 - s2 * 0.8)]); }
     parts.push(strip(b, t, 'pectoral'));
   });
-  if (!lod && !o.bigPecs) [-1, 1].forEach(sd => {
-    const u = 0.7, y = H(u) * (top * 0.5 - 0.12), z = Wd(u) * 0.48 * sd, L = 0.16 * Math.max(0.6, hgt), N = 5, b = [], t = [];
-    for (let i = 0; i <= N; i++) { const s = i / N; b.push([u - 0.5, y + (s - 0.5) * 0.06, z]); t.push([u - 0.5 - L * (0.75 + 0.25 * Math.sin(Math.PI * s)), y - 0.02 + (s - 0.5) * L * 0.5, z + sd * L * 0.35]); }
-    parts.push(strip(b, t, 'pectoral'));
+  if (!lod && !o.bigPecs) [-1, 1].forEach(sd => {                       // 胸びれ: 付け根から扇形に開く丸いひれ。透けて体の色が見えるので、体の色に寄せる
+    const u = 0.69, y = H(u) * (top * 0.5 - 0.1), z = Wd(u) * 0.5 * sd, L = 0.14 * Math.max(0.6, hgt), N = 10, g = new THREE.BufferGeometry(), p = [u - 0.5, y, z], c = [], ix = [];
+    const bodyC = pat(u, 0), finC = fin('pectoral', 0.6), cc = k => mixc(bodyC, finC, 0.35).map(v => v * (0.82 + 0.1 * (k % 2)));
+    c.push(...cc(0));
+    for (let i = 0; i <= N; i++) { const a = -0.9 + 1.5 * i / N, r = L * (0.75 + 0.25 * Math.cos((i / N - 0.45) * Math.PI)); p.push(u - 0.5 - Math.cos(a) * r, y + Math.sin(a) * r * 0.75, z + sd * r * 0.32); c.push(...cc(i)); if (i < N) ix.push(0, i + 1, i + 2); }
+    g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(c, 3)); g.setIndex(ix); g.computeVertexNormals();
+    parts.push(g);
   });
   // 目: 金色や白の輪と、黒い瞳（左右）
   const eu = 0.9 - 0.03 * snout, ey = H(eu) * (top * 0.5 + 0.12), er = Math.max(0.028, H(eu) * 0.13) * (o.eyeK || 1);   // eyeK: 目の大きさ（夜の魚は大きい）
   [-1, 1].forEach(sd => {
     const ez = Wd(eu) * 0.42 * sd;
     if (lod) { parts.push(paint(new THREE.SphereGeometry(er * 0.8, 5, 3).scale(1, 1, 0.45).translate(eu - 0.5, ey, ez), () => [0.05, 0.05, 0.06])); return; }
-    parts.push(paint(new THREE.SphereGeometry(er, 8, 6).scale(1, 1, 0.45).translate(eu - 0.5, ey, ez), () => o.eye || [0.85, 0.75, 0.35]));
-    parts.push(paint(new THREE.SphereGeometry(er * 0.6, 6, 4).scale(1, 1, 0.45).translate(eu - 0.5, ey, ez + sd * er * 0.18), () => [0.02, 0.02, 0.03]));
+    const iris = mixc(o.eye || [0.85, 0.75, 0.35], [0.1, 0.1, 0.1], 0.35);
+    parts.push(paint(new THREE.SphereGeometry(er, 12, 6).scale(1, 1, 0.22).translate(eu - 0.5, ey, ez), (x, y2) => { const r = Math.hypot(x - (eu - 0.5), y2 - ey) / er; return r > 0.86 ? [0.12, 0.12, 0.12] : iris; }));   // 虹彩（縁は暗い）
+    parts.push(paint(new THREE.SphereGeometry(er * 0.66, 10, 6).scale(1, 1, 0.22).translate(eu - 0.5, ey, ez + sd * er * 0.1), () => [0.01, 0.01, 0.015]));   // 大きな黒い瞳
   });
   // 種類ごとの飾り（ツノダシ・トゲチョウチョウウオの、背びれから長く伸びる糸）
   if (o.filament) {

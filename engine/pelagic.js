@@ -42,11 +42,11 @@ function mesh(geo, opts, mode, k, max, air = true) {                 // mode, k:
 }
 const put = (m, i, x, y, z, q, s, tint = 1) => { $V.set(x, y, z); $S.setScalar(s); $M.compose($V, q, $S); m.setMatrixAt(i, $M); m.setColorAt(i, $C.setScalar(tint)); };
 const done = (m, n) => { m.count = n; m.visible = n > 0; if (n) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; } };
-// 向き: 進む向き (hx, hy, hz) に頭（+x）を向け、体の軸のまわりに roll だけ回す
+// 向き: 進む向き (hx, hy, hz) に頭（+x）を向け、体の軸のまわりに roll だけ回す。
+// 左右の向き → 上下の傾き → 体の軸のまわり、の順に回す（最短の回転で向けると、向きによっては背と腹がひっくり返り、くるっと回って見えるため）
+const $E = new THREE.Euler();
 function orient(hx, hy, hz, roll = 0) {
-  $V.set(hx, hy, hz).normalize(); $Q.setFromUnitVectors(X, $V);
-  if (roll) $Q.multiply($Q2.setFromAxisAngle(X, roll));
-  return $Q;
+  return $Q.setFromEuler($E.set(roll, Math.atan2(-hz, hx), Math.atan2(hy, Math.hypot(hx, hz)), 'YZX'));
 }
 
 // ---------- ハシナガイルカ ----------
@@ -215,6 +215,45 @@ const bait = {
   ball: null, next: 20 + Math.random() * 20                            // 潜ってから最初の群れは早めに
 };
 [bait.far, bait.near, bait.hunt].forEach(m => { m.castShadow = false; });
+// クロカジキ: ベイトボールに遠くからやって来て、まわりを大きく回り、ときどき群れへ突っ込む。
+// 群れの中で、くちばしを左右に大きく振って小魚を打ち、弱った小魚を食べる（体は species2.js のクロカジキを使う）
+const MARLIN_SIZE = 3.4;
+function marlinFrame(P, end, dt, t, px, pz, camD) {
+  const B = bait;
+  if (P.t < P.marlinAt) { if (B.mBody) B.mBody.group.visible = false; return; }
+  if (!B.mBody) {
+    if (!window.SPECIES || !window.SPECIES.marlin) { P.marlinAt = Infinity; return; }
+    B.mBody = window.SPECIES.marlin(MARLIN_SIZE); A.withCaustics(B.mBody.group); scene.add(B.mBody.group);
+  }
+  const m = P.marlin || (P.marlin = { th: Math.random() * 6.283, rc: 40, dd: (Math.random() - 0.5) * 2, wait: 6, dash: null, x: P.x, z: P.z, d: P.d, vx: 0, vy: 0, vz: 1, yaw: 0, sp: 2.5 });
+  const ox = m.x, oy = m.d, oz = m.z;
+  let slash = 0;
+  if (end > 0) { m.dash = null; m.rc += 4 * dt; }
+  if (m.dash) {
+    const D = m.dash, k = Math.min(1, (P.t - D.t0) / D.dur), e = k * k * (3 - 2 * k);
+    m.x = D.ax + (D.bx - D.ax) * e; m.z = D.az + (D.bz - D.az) * e; m.d = D.ad + (D.bd - D.ad) * e;
+    if (k > 0.35 && k < 0.75) {                                        // 群れの中: くちばしを左右に振る
+      slash = 0.45 * Math.sin((k - 0.35) / 0.4 * Math.PI * 3);
+      if (Math.random() < dt * 2) { const q = P.fish.find(q => q.alive && Math.random() < 0.03); if (q) q.alive = false; }
+    }
+    if (k >= 1) { m.th = D.thB; m.dash = null; m.wait = 8 + Math.random() * 8; }
+  } else {
+    if (end === 0) m.rc += (12 - m.rc) * Math.min(1, dt * 0.25);       // 遠くから近づいてくる
+    m.th += 2.5 / m.rc * dt * -P.dir; m.wait -= dt;                      // キハダと反対まわりに
+    m.x = P.x + Math.cos(m.th) * m.rc; m.z = P.z + Math.sin(m.th) * m.rc; m.d = P.d + m.dd + Math.sin(t * 0.3) * 0.6;
+    if (m.wait < 0 && end === 0 && m.rc < 14) {
+      const thB = m.th + Math.PI + (Math.random() - 0.5) * 0.6;
+      m.dash = { t0: P.t, dur: m.rc * 2 / 8, ax: m.x, az: m.z, ad: m.d, bx: P.x + Math.cos(thB) * m.rc, bz: P.z + Math.sin(thB) * m.rc, bd: P.d + (Math.random() - 0.5) * 1.5, thB };
+    }
+  }
+  if (dt > 0) { const k6 = Math.min(1, dt * 4); m.vx += ((m.x - ox) / dt - m.vx) * k6; m.vy += ((m.d - oy) / dt - m.vy) * k6; m.vz += ((m.z - oz) / dt - m.vz) * k6; }
+  m.yaw += (slash - m.yaw) * Math.min(1, dt * 10);
+  const g = B.mBody.group, hv = Math.hypot(m.vx, m.vz) || 1;
+  g.position.set(m.x - px, camD - m.d, m.z - pz);
+  g.rotation.set(Math.atan2(m.vy, hv) * 0.6, Math.atan2(m.vx, m.vz) + m.yaw, 0, 'YXZ');
+  g.visible = true;
+  B.mBody.animate(t, Math.min(2, hv / 1.6));
+}
 function baitFrame(dt, t, px, pz, camD, floorHere, fwx, fwz) {
   const B = bait;
   if (!B.ball) {
@@ -231,11 +270,12 @@ function baitFrame(dt, t, px, pz, camD, floorHere, fwx, fwz) {
     const hunters = [];
     for (let j = 0, n = 5 + Math.floor(Math.random() * 4); j < n; j++)
       hunters.push({ th: Math.random() * 6.283, rc: 8 + Math.random() * 5, dd: (Math.random() - 0.5) * 4, wait: 2 + Math.random() * 6, dash: null, s: 1.0 + Math.random() * 0.4, x: 0, z: 0, d: 0, vx: 1, vy: 0, vz: 0 });
-    B.ball = { x: px + Math.cos(a) * r, z: pz + Math.sin(a) * r, d: Math.max(6, Math.min(25, camD + (Math.random() - 0.3) * 8)), R: R0, dir: Math.random() < 0.5 ? 1 : -1, t: 0, life: 80 + Math.random() * 40, fish, hunters };
+    B.ball = { x: px + Math.cos(a) * r, z: pz + Math.sin(a) * r, d: Math.max(6, Math.min(25, camD + (Math.random() - 0.3) * 8)), R: R0, dir: Math.random() < 0.5 ? 1 : -1, t: 0, life: 80 + Math.random() * 40, fish, hunters,
+      marlinAt: Math.random() < 0.4 ? 12 + Math.random() * 20 : Infinity, marlin: null };
   }
   const P = B.ball; P.t += dt;
   const end = Math.max(0, P.t - P.life);                               // 終わり: キハダが去り、群れがほどける
-  if (end > 7 || Math.hypot(P.x - px, P.z - pz) > 140) { B.ball = null; B.next = 100 + Math.random() * 60; done(B.far, 0); done(B.near, 0); done(B.hunt, 0); return; }
+  if (end > 7 || Math.hypot(P.x - px, P.z - pz) > 140) { B.ball = null; B.next = 100 + Math.random() * 60; done(B.far, 0); done(B.near, 0); done(B.hunt, 0); if (B.mBody) B.mBody.group.visible = false; return; }
   P.d += (2.5 - P.d) * Math.min(1, dt * 0.012);                        // 追われて、だんだん海面へ
   P.x += Math.sin(t * 0.05) * 0.15 * dt; P.z += Math.cos(t * 0.04) * 0.15 * dt;
   const spread = 1 + end * end * 0.6;
@@ -266,8 +306,10 @@ function baitFrame(dt, t, px, pz, camD, floorHere, fwx, fwz) {
     put(B.hunt, kh++, h.x - px, camD - h.d, h.z - pz, orient(h.vx, -h.vy, h.vz), h.s);
   }
   done(B.hunt, kh);
+  marlinFrame(P, end, dt, t, px, pz, camD);
   // 小魚: 球の中を渦を巻いて回る。突っ込んでくるキハダの近くでは、通り道から押しのけられて割れ、きらめく
   const dashing = P.hunters.filter(h => h.dash);
+  if (P.marlin && P.marlin.dash) dashing.push(P.marlin);
   let nf = 0, nn = 0;
   for (const q of P.fish) {
     if (!q.alive) continue;
@@ -367,7 +409,8 @@ function checkMeet(dt, px, pz, camD, flots) {
   if (ff.list.some(q => seen(q.x, 0, q.z, px, pz, camD, 30))) K.meetDef(DEF.flyfish, md);
   if (camD > 0.5 && tuna.sc) { const P = tuna.sc; if (seen(P.x, P.d, P.z, px, pz, camD, 30)) K.meetDef(DEF.yellowfin, md); }
   if (camD > 0.5) for (const f of flots) if ((f.mahi || []).some(q => seen(q.x, q.d, q.z, px, pz, camD, 12))) K.meetDef(DEF.mahi, md);
-  if (camD > 0.5 && bait.ball) { const P = bait.ball; if (seen(P.x, P.d, P.z, px, pz, camD, 30)) K.meetDef(DEF.scad, md); if (P.hunters.some(h => seen(h.x, h.d, h.z, px, pz, camD, 25))) K.meetDef(DEF.yellowfin, md); }
+  if (camD > 0.5 && bait.ball) { const P = bait.ball; if (seen(P.x, P.d, P.z, px, pz, camD, 30)) K.meetDef(DEF.scad, md); if (P.hunters.some(h => seen(h.x, h.d, h.z, px, pz, camD, 25))) K.meetDef(DEF.yellowfin, md);
+    const mk = P.marlin && L.species.find(d => d.kind === 'marlin'); if (mk && seen(P.marlin.x, P.marlin.d, P.marlin.z, px, pz, camD, 40)) K.meetDef(mk, md); }
 }
 // 撮影: 画面の中央近くに大きく写っているもの
 let lastFlots = [];
@@ -382,7 +425,8 @@ function subject(fwd, px, pz, depth) {
   if (dol.pod) dol.pod.list.forEach(q => check(DEF.dolphin, q.x, q.d, q.z, 1.8));
   ff.list.forEach(q => check(DEF.flyfish, q.x, 0, q.z, 0.3));
   if (tuna.sc) check(DEF.yellowfin, tuna.sc.x, tuna.sc.d, tuna.sc.z, 1.2);
-  if (bait.ball) { const P = bait.ball; check(DEF.scad, P.x, P.d, P.z, P.R * 1.5); P.hunters.forEach(h => check(DEF.yellowfin, h.x, h.d, h.z, 1.2)); }
+  if (bait.ball) { const P = bait.ball; check(DEF.scad, P.x, P.d, P.z, P.R * 1.5); P.hunters.forEach(h => check(DEF.yellowfin, h.x, h.d, h.z, 1.2));
+    const mk = P.marlin && L.species.find(d => d.kind === 'marlin'); if (mk) check(mk, P.marlin.x, P.marlin.d, P.marlin.z, MARLIN_SIZE); }
   lastFlots.forEach(f => (f.mahi || []).forEach(q => check(DEF.mahi, q.x, q.d, q.z, 1)));
   return best && { def: best, score };
 }
@@ -396,7 +440,7 @@ function frame(dt, t, { dive, under, depth }) {
   CAMD.value = camD;
   const show = dive && camD < 60 && camD > -60;
   airOn = show && !under;
-  if (!show) { ALL.forEach(m => done(m, 0)); lastFlots = []; return; }
+  if (!show) { ALL.forEach(m => done(m, 0)); if (bait.mBody) bait.mBody.group.visible = false; lastFlots = []; return; }
   const px = S.x * 1000, pz = S.z * 1000, floorHere = floorAt(px, pz);
   T.camera.getWorldDirection(FWD); const fl = Math.hypot(FWD.x, FWD.z) || 1;
   dolphinFrame(dt, t, px, pz, camD, floorHere, true);

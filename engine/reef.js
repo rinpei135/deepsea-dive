@@ -746,7 +746,7 @@ function bigFrame(dt, t, px, pz, depth, subD) {
       b.body.animate(t, sp / b.spd);
       continue;
     }
-    Q.setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(o.hx / hl, 0, o.hz / hl));
+    headQ(Q, o.hx / hl, 0, o.hz / hl);
     if (b.ray) Q.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.sin(t * 0.5) * 0.12));   // ゆっくり傾く
     SC.setScalar(b.len); M.compose(P, Q, SC);
     m.setMatrixAt(0, M); m.setColorAt(0, C.setScalar(1)); m.count = 1; m.visible = true; m.instanceMatrix.needsUpdate = true;
@@ -757,6 +757,10 @@ function bigFrame(dt, t, px, pz, depth, subD) {
 const PH = { value: 0 };
 // 寄ってくる魚: 潜水艇がゆっくり動いているか止まっているとき、近くの好奇心の強い群れが、目の前 2〜3m まで来てしばらく泳ぐ
 let lastSub = null, subSpeed = 0, nextCurious = 0, nextVisit = 0;
+// 魚の向き: 進む向き (hx, hy, hz) に頭（+x）を向ける。左右の向き → 上下の傾きの順に回し、背はいつも上に
+// （最短の回転で向けると、向きによっては背と腹がひっくり返り、泳ぎながらくるっと回って見えるため）
+const HEAD_E = new THREE.Euler();
+const headQ = (q, hx, hy, hz) => q.setFromEuler(HEAD_E.set(0, Math.atan2(-hz, hx), Math.atan2(hy, Math.hypot(hx, hz)), 'YZX'));
 function frame(dt, t, px, pz, depth, show) {
   TIME.value = t;
   if (lastSub && dt > 0) { const v = Math.hypot(px - lastSub[0], pz - lastSub[1], depth - lastSub[2]) / dt; if (v < 500) subSpeed += (v - subSpeed) * Math.min(1, dt * 3); }
@@ -865,7 +869,7 @@ function frame(dt, t, px, pz, depth, show) {
       q.hy += (wantHy - q.hy) * kk; if (q.nod > 0) q.nod -= dt;
       const hl = Math.hypot(q.hx, q.hz) || 1;
       P.set(q.x - px, depth - q.d, q.z - pz);
-      Q.setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(q.hx / hl, q.hy * 0.5, q.hz / hl).normalize());
+      headQ(Q, q.hx / hl, q.hy * 0.5, q.hz / hl);
       SC.setScalar(q.s); M.compose(P, Q, SC);
       C.setScalar(q.tint);
       if (f.bodies) { mantaBody(f, f.cnt++, q, t); continue; }

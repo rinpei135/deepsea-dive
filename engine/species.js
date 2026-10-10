@@ -709,10 +709,20 @@ function makeFan(n, mat) {
   return mesh;
 }
 // 自分で光る点（生物発光）。近景では距離に関係なく数ピクセルの光として見える
+// 光の点の形: 中心が明るく、まわりへぼんやり広がる丸（地図なしの点は真四角に描かれるため）
+let glowDot = null;
+function glowDotTex() {
+  if (glowDot) return glowDot;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const x = cv.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.3, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.6, 'rgba(255,255,255,0.3)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+  return (glowDot = new THREE.CanvasTexture(cv));
+}
 function glowPoints(n, color, px) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
-  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color, size: px, sizeAttenuation: false, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color, map: glowDotTex(), size: px, sizeAttenuation: false, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
   pts.frustumCulled = false;
   return pts;
 }

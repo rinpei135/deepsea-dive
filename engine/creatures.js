@@ -1224,7 +1224,7 @@ function update(dt, t, { dive, under, depth, view }) {
       const lure = beh === 'bait' && d < 25 && pSpeed < 3;
       // 驚く生き物（ハダカイワシの群れ）: ライトを当てて近づくと散る
       c.scare = (c.scare || 0) + ((beh === 'school' && d < (lampOn ? 7 : 3) ? 1 : 0) - (c.scare || 0)) * Math.min(1, dt * (c.scare > 0.5 ? 0.6 : 3));
-      const shy = size < 1 && d < 3 && !lure ? 1 : 0;
+      const shy = size < 1 && d < 3 && !lure ? 1 : 0;                  // 小さな生き物は、潜水艇がすぐ近くに来ると離れていく
       // 狩りをする生き物（スネイルフィッシュ）: 近くのヨコエビを追いかけて食べる。食べたあとはしばらく休む
       if (beh === 'hunt' && (c.full || 0) < t) {
         const tg = c.target;
@@ -1237,12 +1237,15 @@ function update(dt, t, { dive, under, depth, view }) {
       sp = base > 0 ? base + shy * 0.25 + (c.scare || 0) * 0.6 + (lure ? 0.2 : 0) + (prey ? 0.3 : 0) : 0;
       if (sp > 0) {
         const away = Math.hypot(c.x - c.hx, c.z - c.hz), leash = beh === 'crawl' ? 8 : def.roam || Math.max(6, size * 4);
-        let turn = beh === 'crawl' ? Math.sin(t * 0.05 + c.seed) * 0.05 : Math.sin(t * 0.3 + c.seed) * 0.4 * Math.min(1, 0.4 / Math.max(0.4, size)) * (def.agility || 1) + (shy ? 1.2 : 0);
+        let turn = beh === 'crawl' ? Math.sin(t * 0.05 + c.seed) * 0.05 : Math.sin(t * 0.3 + c.seed) * 0.4 * Math.min(1, 0.4 / Math.max(0.4, size)) * (def.agility || 1);
         const steer = (tx, tz, k) => { const want = Math.atan2(tx - c.x, tz - c.z), diff = Math.atan2(Math.sin(want - c.heading), Math.cos(want - c.heading)); turn += Math.max(-k, Math.min(k, diff * 2)); };
         if (prey) steer(prey.x, prey.z, 3);
         else if (lure) steer(px + fwd.x * 1.5, pz + fwd.z * 1.5, 2.5);
         else if (away > leash) steer(c.hx, c.hz, beh === 'crawl' ? 0.1 : 0.6 * (def.agility || 1));
         if (c.scare > 0.3) steer(c.x + dx, c.z + dz, 1.5);              // 潜水艇から離れる向きへ
+        else if (shy) steer(c.x + dx, c.z + dz, 1.2);
+        // 曲がり方: 泳ぐ速さに見合った半径より小さくは曲がらない（ゆっくり泳ぐ生き物が、その場でぐるぐる回らないように）。獲物を追う・寄ってくるときは別
+        if (!prey && !lure) { const k = sp / Math.max(0.6, size * 5); turn = Math.max(-k, Math.min(k, turn)); }
         c.heading += turn * dt;
         c.x += Math.sin(c.heading) * sp * dt; c.z += Math.cos(c.heading) * sp * dt;
       }

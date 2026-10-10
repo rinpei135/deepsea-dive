@@ -207,6 +207,7 @@ const SONG = [
   [['a', 250, 210, 1.1], ['m', 95, 120, 3.0], ['u', 140, 420, 1.0]]
 ];
 let songIx = 0, nextSong = 0;
+const SONG_RANGE = 2500;                                               // 歌が聞こえる距離 (m)
 function songUnit([shape, f0, f1, dur], lv, pan, t0) {
   const o = ac.createOscillator(), o2 = ac.createOscillator(), g = gain(0), g2 = gain(shape === 'g' ? 0.6 : 0.28), lp = filt('lowpass', shape === 'g' ? 500 : 2400, 0.7);
   o.type = shape === 'g' ? 'sawtooth' : 'sine'; o2.type = 'sine';
@@ -331,11 +332,12 @@ function update(dt, { dive, under, depth, motor }) {
   ramp(amb.motorF.frequency, 140 + Math.min(500, motor / 3), 0.5);
   // 回遊するマッコウクジラが 12km 以内にいると、反響定位の音が聞こえる（近いほど大きく、来る方向から）
   const W = window.__LIFE && window.__LIFE.whale;
-  // ザトウクジラが 15km 以内にいると、歌が聞こえる（近いほど大きく、来る方向から）。フレーズの間は少しあける
-  if (under && st.se && W && W.kind === 'humpback' && W.d < 15000 && clock > nextSong) {
-    const lv = 0.04 + 0.45 * Math.pow(1 - W.d / 15000, 1.6);
+  // ザトウクジラが 2.5km 以内にいると、歌が聞こえる（近いほど大きく、来る方向から。遠くではかすか）。フレーズの間は少しあける
+  // 本物の歌は何十 km も届くが、水中で姿が見えるのは数十 m 先まで。聞こえる範囲を広げすぎると、いつまでも会えない歌になるので、近くに絞る
+  if (under && st.se && W && W.kind === 'humpback' && W.d < SONG_RANGE && clock > nextSong) {
+    const lv = 0.015 + 0.5 * Math.pow(1 - W.d / SONG_RANGE, 2);
     nextSong = clock + humpbackPhrase(lv, W.pan) + rand(1.5, 4);
-    tell('humpback', 'うなるような低い声と、高く伸びる声が、くり返し聞こえる。ザトウクジラの雄の歌だ。冬のマリアナの海で、繁殖のために歌う。');
+    tell('humpback', 'うなるような低い声と、高く伸びる声が、くり返し聞こえる。ザトウクジラの雄の歌だ。冬のマリアナの海で、繁殖のために歌う。歌は遠くまで届く。声が大きくなる方へ進めば、会えるかもしれない。');
   }
   if (under && st.se && W && W.kind !== 'humpback' && W.d < 12000 && clock > nextClick) {
     const lv = 0.03 + 0.5 * Math.pow(1 - W.d / 12000, 2.5);

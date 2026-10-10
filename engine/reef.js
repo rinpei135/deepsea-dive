@@ -287,7 +287,7 @@ const FISH = [
       pat: (u, v) => mixc([0.88, 0.9, 0.9], [0.55, 0.6, 0.62], Math.max(0, v)),
       fin: (p, s) => p === 'pectoral' ? [0.9, 0.85, 0.5] : mixc([0.55, 0.55, 0.5], [0.85, 0.7, 0.3], s) } },
   // ドウクツハタンポの仲間: 洞窟や沈船の暗がりに、何百匹も群れる、赤銅色の小さな魚
-  { kind: 'sweeper', name: 'ドウクツハタンポの仲間', len: 0.12, n: [80, 110], R: 1.8, up: [0, 3], spd: 0.25, home: 'point', w: 0, school: true, maxN: 340,
+  { kind: 'sweeper', name: 'ドウクツハタンポの仲間', len: 0.12, n: [80, 110], R: 1.8, up: [0, 3], spd: 0.25, home: 'point', w: 0, school: true, mill: true, maxN: 340,
     where: '沈船（東海丸）や洞窟の暗がり',
     geo: { hgt: 0.46, wid: 0.09, mx: 0.72, snout: 0.45, top: -0.12, ped: 0.1, tail: { len: 0.22, fork: 0.35 }, dorsal: [0.55, 0.72, 0.42, 1.8], anal: [0.13, 0.56, 0.16], eye: [0.7, 0.66, 0.55], eyeK: 1.25,
       pat: (u, v) => mixc(mixc([0.9, 0.66, 0.42], [0.62, 0.36, 0.2], Math.max(0, v) * 1.2), [0.95, 0.85, 0.75], v < -0.5 ? 0.5 : 0),
@@ -798,11 +798,26 @@ function frame(dt, t, px, pz, depth, show) {
     sc.ax += (gx - sc.ax) * kk0; sc.az += (gz - sc.az) * kk0; sc.ad += (gd - sc.ad) * kk0;
     for (const q of sc.fish) {
       if (f.cnt >= f.max) break;
-      // すみかのまわりを回る目標。ゆっくり揺らぐ
-      q.a += q.w * dt;
-      const wob = Math.sin(t * 0.4 + q.ph) * 0.3;
-      const rr = curious ? Math.min(q.r, 0.9) : q.r, uu = curious ? 0 : q.up;
-      let tx = sc.ax + Math.cos(q.a) * rr * (1 + wob * 0.3), tz = sc.az + Math.sin(q.a) * rr * (1 + wob * 0.3), td = sc.ad - uu - 0.2 * Math.sin(t * 0.6 + q.ph);
+      let tx, tz, td;
+      if (f.mill || f.len >= 0.4) {
+        // 渦を巻く群れ（ギンガメアジ・バラクーダ・ハタンポ）と大きな魚: すみかのまわりを大きく回る。ゆっくり揺らぐ
+        q.a += q.w * dt;
+        const wob = Math.sin(t * 0.4 + q.ph) * 0.3;
+        const rr = curious ? Math.min(q.r, 0.9) : q.r, uu = curious ? 0 : q.up;
+        tx = sc.ax + Math.cos(q.a) * rr * (1 + wob * 0.3); tz = sc.az + Math.sin(q.a) * rr * (1 + wob * 0.3); td = sc.ad - uu - 0.2 * Math.sin(t * 0.6 + q.ph);
+      } else {
+        // 小さな礁の魚: 円を描いて回り続けず、すみかの範囲の中をぶらぶら泳ぐ。次に向かう所は、いま向いている方の少し左右（すみかの端まで来たら、内側へ引き返す）
+        const kc = curious ? Math.min(1, 0.9 / Math.max(0.01, q.r)) : 1;   // 寄ってくるときは、目の前の小さな範囲に
+        if (q.wx == null || t > q.wt) {
+          const ox = (q.x - sc.ax) / kc, oz = (q.z - sc.az) / kc, s = Math.min(q.r, 0.4 + f.len * 6) * (0.5 + 0.5 * Math.random());
+          const a = Math.atan2(q.hz, q.hx) + (Math.random() - 0.5) * 2;
+          let nx = ox + Math.cos(a) * s, nz = oz + Math.sin(a) * s;
+          if (Math.hypot(nx, nz) > q.r) { const b = Math.random() * 6.283, c = q.r * 0.6 * Math.sqrt(Math.random()); nx = Math.cos(b) * c; nz = Math.sin(b) * c; }
+          q.wx = nx; q.wz = nz; q.wu = Math.max(0, q.up + (Math.random() - 0.5) * Math.min(0.6, q.r * 0.4));
+          q.wt = t + (1.5 + Math.random() * 4) * Math.max(1, Math.min(3, 0.8 / q.r));   // すみかが狭い魚（クマノミなど）ほど、着いた所でしばらくとどまる
+        }
+        tx = sc.ax + q.wx * kc; tz = sc.az + q.wz * kc; td = sc.ad - (curious ? 0 : q.wu) - 0.08 * Math.sin(t * 0.6 + q.ph);
+      }
       let slow = 1, pose = null;
       // つがいで泳ぐ（トゲチョウチョウウオ）: 2 匹目は、1 匹目のすぐ横を同じ向きで
       if (f.pair && sc.fish[0] !== q) { const L0 = sc.fish[0]; tx = L0.x - L0.hx * 0.12 - L0.hz * 0.18; tz = L0.z - L0.hz * 0.12 + L0.hx * 0.18; td = L0.d + 0.05; }
@@ -825,8 +840,9 @@ function frame(dt, t, px, pz, depth, show) {
       // ホンソメワケベラ: 客の体のまわりを、すばやく行き来する。客がいないときは、掃除場で上下に踊って、客を呼ぶ
       if (f.kind === 'cleaner') {
         const c = sc.client;
-        if (c && c.cleaning) { const a = t * 2.2 + q.ph; tx = c.x + Math.cos(a) * c.s * 0.35; tz = c.z + Math.sin(a) * c.s * 0.35; td = c.d + Math.sin(a * 1.7) * c.s * 0.2; slow = 1.6; }
-        else { tx = sc.hx + Math.cos(q.a) * 0.2; tz = sc.hz + Math.sin(q.a) * 0.2; td = sc.top - 0.25 - 0.12 * Math.sin(t * 3 + q.ph); }
+        if (c && c.cleaning) { const a = q.ph + 2.2 * Math.sin(t * 0.8 + q.ph);   // 客の体に沿って、行ったり来たり（ぐるぐる回らない）
+          tx = c.x + Math.cos(a) * c.s * 0.35; tz = c.z + Math.sin(a) * c.s * 0.35; td = c.d + Math.sin(a * 1.7) * c.s * 0.2; slow = 1.6; }
+        else { tx = sc.hx + q.wx; tz = sc.hz + q.wz; td = sc.top - 0.25 - 0.12 * Math.sin(t * 3 + q.ph); }
       }
       // 潜水艇が近いと逃げる（デバスズメダイは枝サンゴの中へ、ナンヨウハギはサンゴのすき間へ隠れる）。止まっていれば 1m 近くまで平気で、速く動くほど遠くから逃げる
       const ex = q.x - px, ed = q.d - subD, ez = q.z - pz, e = Math.hypot(ex, ed, ez), near = depth > -1 && e < 0.9 + Math.min(3, subSpeed * 1.2);
@@ -843,7 +859,8 @@ function frame(dt, t, px, pz, depth, show) {
       // 向き: 進む向きへ、なめらかに
       const vl = Math.hypot(q.vx, q.vz);
       const kk = Math.min(1, dt * 4);
-      if (vl > 0.01 && (pose === null || vl > 0.08)) { q.hx += (q.vx / vl - q.hx) * kk; q.hz += (q.vz / vl - q.hz) * kk; }
+      // 止まりかけの小さな動きでは向きを変えない（目標の近くで向きが細かく揺れないように）
+      if (vl > Math.max(0.01, f.spd * 0.25) && (pose === null || vl > 0.08)) { q.hx += (q.vx / vl - q.hx) * kk; q.hz += (q.vz / vl - q.hz) * kk; }
       const wantHy = pose !== null ? pose - (q.nod > 0 ? 0.35 : 0) : Math.max(-0.5, Math.min(0.5, -q.vd / Math.max(vl, 0.05)));
       q.hy += (wantHy - q.hy) * kk; if (q.nod > 0) q.nod -= dt;
       const hl = Math.hypot(q.hx, q.hz) || 1;

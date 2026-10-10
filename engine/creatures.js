@@ -1239,13 +1239,17 @@ function update(dt, t, { dive, under, depth, view }) {
         const away = Math.hypot(c.x - c.hx, c.z - c.hz), leash = beh === 'crawl' ? 8 : def.roam || Math.max(6, size * 4);
         let turn = beh === 'crawl' ? Math.sin(t * 0.05 + c.seed) * 0.05 : Math.sin(t * 0.3 + c.seed) * 0.4 * Math.min(1, 0.4 / Math.max(0.4, size)) * (def.agility || 1);
         const steer = (tx, tz, k) => { const want = Math.atan2(tx - c.x, tz - c.z), diff = Math.atan2(Math.sin(want - c.heading), Math.cos(want - c.heading)); turn += Math.max(-k, Math.min(k, diff * 2)); };
+        let swarm = false;
         if (prey) steer(prey.x, prey.z, 3);
-        else if (lure) steer(px + fwd.x * 1.5, pz + fwd.z * 1.5, 2.5);
+        else if (lure) {                                                 // 目の前に集まる。着いたら、その場でゆっくり漂う（集まる所のまわりを回り続けない）
+          const lx = px + fwd.x * 1.5, lz = pz + fwd.z * 1.5, ld = Math.hypot(lx - c.x, lz - c.z);
+          if (ld > 0.7) { steer(lx, lz, 2.5); swarm = true; } else sp *= Math.max(0.2, ld / 0.7);
+        }
         else if (away > leash) steer(c.hx, c.hz, beh === 'crawl' ? 0.1 : 0.6 * (def.agility || 1));
         if (c.scare > 0.3) steer(c.x + dx, c.z + dz, 1.5);              // 潜水艇から離れる向きへ
         else if (shy) steer(c.x + dx, c.z + dz, 1.2);
-        // 曲がり方: 泳ぐ速さに見合った半径より小さくは曲がらない（ゆっくり泳ぐ生き物が、その場でぐるぐる回らないように）。獲物を追う・寄ってくるときは別
-        if (!prey && !lure) { const k = sp / Math.max(0.6, size * 5); turn = Math.max(-k, Math.min(k, turn)); }
+        // 曲がり方: 泳ぐ速さに見合った半径より小さくは曲がらない（ゆっくり泳ぐ生き物が、その場でぐるぐる回らないように）。獲物を追うとき・集まる所へ向かうときは別
+        if (!prey && !swarm) { const k = sp / Math.max(0.6, size * 5); turn = Math.max(-k, Math.min(k, turn)); }
         c.heading += turn * dt;
         c.x += Math.sin(c.heading) * sp * dt; c.z += Math.cos(c.heading) * sp * dt;
       }

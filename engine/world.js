@@ -291,7 +291,7 @@ function rfNJS(x, z) { const ix = Math.floor(x), iz = Math.floor(z); let fx = x 
 const clusterColJS = (x, z) => { const m = rfNJS(x * 0.11, z * 0.11) * CORAL_COLS.length; return (Math.floor(m) + (m - Math.floor(m) > 0.5 ? 1 : 0)) % CORAL_COLS.length; };
 // サンゴの多さ（0〜1）: 礁のまだらの岩場に多く、砂地にはまれ。浅すぎる所（礁原）と 25m より深い所では少ない
 const coralDepthOK = d => Math.min(1, d / 2) * (1 - Math.min(1, Math.max(0, (d - 25) / 15)));
-const coralDens = (rm, d) => (0.08 + 0.92 * Math.min(1, Math.max(0, (rm - 0.48) / 0.14))) * 0.85 * coralDepthOK(d);
+const coralDens = (rm, d) => (0.12 + 0.88 * Math.min(1, Math.max(0, (rm - 0.44) / 0.16))) * 0.88 * coralDepthOK(d);
 // 区画 (cx, cz) のサンゴ。d: 海底の深さ (m)。ないときは null
 const CORAL_KINDS = ['massive', 'brain', 'table', 'branch'], CORAL_FOOT = { massive: 1.0, brain: 1.0, table: 1.0, branch: 0.6 };   // 真上から見た広がり（大きさに対する半径）
 function coralCellJS(cx, cz, d, rm) {
@@ -322,7 +322,7 @@ const CORAL_FLOOR_GLSL = `
   }
   vec3 coralFloor(vec3 sed, vec2 pm, float d){
     float dOK = min(1.0, d / 2.0) * (1.0 - clamp((d - 25.0) / 15.0, 0.0, 1.0));
-    float pix = length(fwidth(pm)), dens = (0.08 + 0.92 * clamp((reefMask(pm) - 0.48) / 0.14, 0.0, 1.0)) * 0.85 * dOK;
+    float pix = length(fwidth(pm)), dens = (0.12 + 0.88 * clamp((reefMask(pm) - 0.44) / 0.16, 0.0, 1.0)) * 0.88 * dOK;
     float dens0 = dens; vec2 gp = garden(pm); dens = gp.y > 1.5 ? dens * (1.0 - 0.6 * gp.x) : max(dens, gp.x * 0.9 * dOK);
     // 画素より小さいときは、覆う割合で色を混ぜる（ちらつかないように）。サンゴの色は数 m〜十数 m のまとまりごとに変わる
     // （同じ種類のサンゴは群れて育つ）ので、遠くから見ても、礁が色とりどりのまだらに見える

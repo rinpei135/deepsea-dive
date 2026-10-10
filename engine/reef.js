@@ -434,6 +434,59 @@ const GEO = {
     return merge([paint(stem, (x, y, z) => mixc([0.66, 0.6, 0.44], [0.76, 0.72, 0.56], y / 0.26)),
       paint(cap, (x, y, z) => (Math.sin(x * 95) * Math.sin(z * 95) > 0.55 ? [0.72, 0.7, 0.55] : mixc([0.48, 0.43, 0.25], [0.38, 0.42, 0.26], 0.5 + 0.5 * Math.sin(x * 11 + z * 7))))]);
   })(),
+  // カイメンの仲間（ツツカイメン）: 岩から何本も立ち上がる、口の開いた筒。筒の内側は暗く、縁は少し厚い。色（紫・橙・黄・青紫・桃）は株ごとに
+  sponge: (() => {
+    const parts = [], tubes = [[0, 0, 0.55, 0.075, 0], [0.11, 0.05, 0.42, 0.06, 0.18], [-0.09, 0.07, 0.36, 0.055, -0.22], [0.04, -0.11, 0.3, 0.05, 0.12], [-0.06, -0.08, 0.24, 0.045, -0.1]];
+    tubes.forEach(([x, z, L, r, lean]) => {
+      const out = new THREE.CylinderGeometry(r, r * 0.8, L, 14, 4, true).translate(0, L / 2, 0), inn = new THREE.CylinderGeometry(r * 0.82, r * 0.6, L * 0.92, 14, 1, true).translate(0, L * 0.54, 0);
+      const op = out.attributes.position; for (let i = 0; i < op.count; i++) { const a = Math.atan2(op.getZ(i), op.getX(i)), y = op.getY(i), k = 1 + 0.06 * Math.sin(a * 5 + y * 20) + 0.05 * Math.sin(y * 31); op.setX(i, op.getX(i) * k); op.setZ(i, op.getZ(i) * k); }   // でこぼこした筒
+      out.computeVertexNormals(); inn.scale(-1, 1, 1);                 // 内側の面を内向きに
+      const rim = new THREE.TorusGeometry(r * 0.91, r * 0.12, 6, 16).rotateX(Math.PI / 2).translate(0, L, 0);
+      [out, inn, rim].forEach(g => { g.rotateZ(lean).rotateX(lean * 0.6).translate(x, 0, z); });
+      parts.push(paint(out, (px, y) => { const k = 0.75 + 0.35 * Math.min(1, y / L); return [k, k, k]; }), paint(inn, () => [0.18, 0.15, 0.17]), paint(rim, () => [1.05, 1.05, 1.05]));
+    });
+    return merge(parts);
+  })(),
+  // ソフトコーラル（トゲトサカの仲間）: 半透明の白っぽい幹と枝の先に、小さなポリプのかたまりが、カリフラワーのように集まる（桃・赤・紫・橙・黄）
+  softcoral: (() => {
+    const parts = [], rnd = (() => { let s = 23; return () => (s = (s * 16807) % 2147483647) / 2147483647; })(), UPv = new THREE.Vector3(0, 1, 0);
+    const branch = (base, dir, len, rad, lvl) => {
+      const c = new THREE.CylinderGeometry(rad * 0.7, rad, len, 6, 1, true).translate(0, len / 2, 0);
+      c.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(UPv, dir))); c.translate(base.x, base.y, base.z);
+      parts.push(paint(c, () => [1.05, 1.0, 1.02]));                     // 幹は白っぽい（半透明に見えるよう、明るめ）
+      const tip = base.clone().addScaledVector(dir, len);
+      if (lvl >= 3) {                                                  // 枝先のポリプのかたまり
+        for (let k = 0; k < 12; k++) { const o = new THREE.Vector3(rnd() - 0.5, rnd() * 0.7, rnd() - 0.5).multiplyScalar(0.06); const s = new THREE.IcosahedronGeometry(0.012 + rnd() * 0.012, 0).translate(tip.x + o.x, tip.y + o.y, tip.z + o.z); const w = 0.85 + rnd() * 0.3; parts.push(paint(s, () => [w, w, w])); }   // 小さなポリプの束
+        return;
+      }
+      for (let k = 0; k < (lvl ? 2 : 3); k++) { const ax = new THREE.Vector3(rnd() - 0.5, 0, rnd() - 0.5).normalize(), d2 = dir.clone().applyAxisAngle(ax, 0.45 + rnd() * 0.4).lerp(UPv, 0.15).normalize(); branch(tip, d2, len * (0.6 + rnd() * 0.2), rad * 0.65, lvl + 1); }
+    };
+    branch(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0), 0.18, 0.05, 0);
+    return merge(parts);
+  })(),
+  // ムチヤギの仲間: 岩から伸びる、細く長いむちのような枝（1〜数本）。ゆるく曲がり、流れに揺れる（赤・橙・黄・緑がかった色）
+  whip: (() => {
+    const parts = [];
+    [[0, 0, 1.0, 0.25, 0], [0.05, 0.03, 0.8, -0.3, 1.6], [-0.04, 0.05, 0.65, 0.4, 3.4]].forEach(([x, z, L, bend, a]) => {
+      const g = new THREE.CylinderGeometry(0.006, 0.014, L, 5, 12, true).translate(0, L / 2, 0), p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) { const y = p.getY(i), t = y / L; p.setX(i, p.getX(i) + bend * L * t * t * 0.5); }
+      g.computeVertexNormals(); g.rotateY(a).translate(x, 0, z);
+      parts.push(paint(g, (px, y) => { const k = 0.8 + 0.25 * Math.min(1, y / 0.8); return [k, k, k]; }));
+    });
+    return merge(parts);
+  })(),
+  // サンゴのかけら: 波で折れた枝サンゴのかけらと、小さな板のかけらが、礁のまわりの砂の上に散らばる（白っぽく、藻が付いて少し緑がかる）
+  rubble: (() => {
+    const parts = [], rnd = (() => { let s = 31; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+    for (let i = 0; i < 14; i++) {
+      const a = rnd() * 6.283, r = Math.sqrt(rnd()) * 0.9, x = Math.cos(a) * r, z = Math.sin(a) * r, L = 0.08 + rnd() * 0.16;
+      const g = i % 3 ? new THREE.CylinderGeometry(0.012, 0.016, L, 5).rotateZ(Math.PI / 2 - 0.15 + rnd() * 0.3).rotateY(rnd() * 6.3) : new THREE.BoxGeometry(0.1 + rnd() * 0.1, 0.012, 0.07 + rnd() * 0.08).rotateY(rnd() * 6.3).rotateX(rnd() * 0.3);
+      g.translate(x, 0.012, z);
+      const c = rnd(), col = c < 0.6 ? [0.85, 0.83, 0.78] : c < 0.85 ? [0.62, 0.66, 0.5] : [0.8, 0.6, 0.62];
+      parts.push(paint(g, () => col));
+    }
+    return merge(parts);
+  })(),
   // 海草（リュウキュウスガモなど）: 細長い葉の束。流れに揺れる
   grass: (() => {
     const parts = [];
@@ -453,11 +506,18 @@ const BOTTOM = {
   cucumber: { max: 160, sway: 0, mat: { roughness: 0.8 } },
   fan: { max: 140, sway: 0.5, mat: { roughness: 0.7, side: THREE.DoubleSide } },
   leather: { max: 160, sway: 0.4, mat: { roughness: 0.8 } },
-  grass: { max: 2400, sway: 2.2, mat: { roughness: 0.7, side: THREE.DoubleSide } }
+  grass: { max: 2400, sway: 2.2, mat: { roughness: 0.7, side: THREE.DoubleSide } },
+  sponge: { max: 360, sway: 0, mat: { roughness: 0.85 } },
+  softcoral: { max: 160, sway: 0.35, mat: { roughness: 0.6, emissive: 0x100608 } },
+  whip: { max: 200, sway: 1.4, mat: { roughness: 0.6 } },
+  rubble: { max: 500, sway: 0, mat: { roughness: 0.9 }, plain: true }   // plain: 図鑑に載せない（生き物ではない）
 };
 Object.entries(BOTTOM).forEach(([k, b]) => { b.mesh = instanced(GEO[k], swayMat(b.mat, 2, [b.sway]), b.max); b.n = 0; });
 const ANEMONE_TINT = [[1, 1, 1], [1.35, 0.65, 0.75], [0.75, 0.9, 1.35], [0.95, 1.2, 0.9], [1.2, 1.0, 0.7]];   // イソギンチャク畑の色（紫・赤・青・緑・黄みがかった株）
 const FAN_COLS = [[0.85, 0.2, 0.2], [0.95, 0.5, 0.15], [0.6, 0.25, 0.65], [0.95, 0.75, 0.2]];
+const SPONGE_COLS = [[0.62, 0.3, 0.68], [0.95, 0.5, 0.18], [0.95, 0.82, 0.25], [0.42, 0.38, 0.85], [0.95, 0.5, 0.62], [0.55, 0.5, 0.45]];   // 紫・橙・黄・青紫・桃・灰褐色
+const SOFT_COLS = [[1.0, 0.45, 0.6], [0.95, 0.2, 0.25], [0.75, 0.35, 0.85], [1.0, 0.6, 0.2], [1.0, 0.85, 0.35]];
+const WHIP_COLS = [[0.9, 0.3, 0.2], [0.95, 0.6, 0.2], [0.95, 0.85, 0.3], [0.55, 0.7, 0.35]];
 
 // ---------- 置き直す（潜水艇が 3m 動くたび。creatures.js の updateBed から） ----------
 // 区画の角（サンゴの中心の間）に、海底の生き物を置く。礁のまだらの岩場（サンゴの多い所）と砂地で、置くものを変える
@@ -482,7 +542,7 @@ function rebuild(ox, oz, floorHere) {
       const rm = T.reefMaskJS(wx, wz), onReef = Math.min(1, Math.max(0, (rm - 0.48) / 0.14));
       // 魚の群れ: サンゴのある区画をすみかにする
       const coral = T.coralCellJS(cx, cz, d, rm);
-      if (coral && h(cx, cz, 300) < 0.11) {
+      if (coral && h(cx, cz, 300) < 0.16) {
         const pool = FISH.filter(f => f.home === 'coral' || (f.home === 'branch' && coral.kind === 'branch'));
         let tot = pool.reduce((a, f) => a + f.w, 0), r = h(cx, cz, 301) * tot, f = pool[0];
         for (const q of pool) { r -= q.w; if (r <= 0) { f = q; break; } }
@@ -501,12 +561,12 @@ function rebuild(ox, oz, floorHere) {
       }
       // 区画の角に、海底の生き物
       const ax = wx + CELL / 2, az = wz + CELL / 2, ad = floorAt(ax, az), r1 = h(cx, cz, 310), r2 = h(cx, cz, 311);
-      const put = (k, s, rotY, col) => {
+      const put = (k, s, rotY, col, slot = 0) => {                    // slot: 1 区画に 2 つ目を置くとき（場所をずらす）
         const b = BOTTOM[k]; if (b.n >= b.max) return;
-        const jx = (h(cx, cz, 312) - 0.5) * 1.2, jz = (h(cx, cz, 313) - 0.5) * 1.2, x = ax + jx, z = az + jz;
+        const jx = (h(cx, cz, 312 + slot * 7) - 0.5) * (slot ? 2.4 : 1.2), jz = (h(cx, cz, 313 + slot * 7) - 0.5) * (slot ? 2.4 : 1.2), x = (slot ? wx : ax) + jx, z = (slot ? wz : az) + jz;
         P.set(x - ox, -seabedY(x, z) - 0.03, z - oz); Q.setFromAxisAngle(UP, rotY); SC.setScalar(s);
         M.compose(P, Q, SC); b.mesh.setMatrixAt(b.n, M); b.mesh.setColorAt(b.n, C.setRGB(...(col || [1, 1, 1]))); b.n++;
-        SPOTS.push({ k, x, z, d: seabedY(x, z) });
+        if (!b.plain) SPOTS.push({ k, x, z, d: seabedY(x, z) });
         if (k === 'anemone') anemones.push({ x, z, d: seabedY(x, z), key: 'a' + cx + ',' + cz });
       };
       const gd = T.gardenJS ? T.gardenJS(ax, az) : null, spr = A.spireH ? A.spireH(ax, az) : 0;
@@ -528,6 +588,17 @@ function rebuild(ox, oz, floorHere) {
         else if (r1 < 0.075) put('urchin', 0.7 + r2 * 0.5, r2 * 6.3);
         else if (r1 < 0.1 && ad > 6) put('fan', 1.0 + r2 * 1.6, Math.PI / 2 + (r2 - 0.5) * 0.4, FAN_COLS[Math.floor(h(cx, cz, 315) * FAN_COLS.length)]);
         else if (r1 < 0.13) put('leather', 0.6 + r2 * 0.9, r2 * 6.3);
+        // もう 1 つ: カイメン・ソフトコーラル・ムチヤギ・サンゴのかけら（礁の岩場をにぎやかに）
+        const r3 = h(cx, cz, 400), r4 = h(cx, cz, 401), ci = h(cx, cz, 402);
+        if (r3 < 0.12) put('sponge', 0.9 + r4 * 1.1, r4 * 6.3, SPONGE_COLS[Math.floor(ci * SPONGE_COLS.length)], 1);
+        else if (r3 < 0.21) put('softcoral', 0.8 + r4 * 1.1, r4 * 6.3, SOFT_COLS[Math.floor(ci * SOFT_COLS.length)], 1);
+        else if (r3 < 0.26 && ad > 4) put('whip', 0.8 + r4 * 0.8, r4 * 6.3, WHIP_COLS[Math.floor(ci * WHIP_COLS.length)], 1);
+        else if (r3 < 0.36) put('rubble', 0.8 + r4 * 0.6, r4 * 6.3, null, 1);
+      } else if (onReef > 0.02 && h(cx, cz, 403) < 0.35) {             // 礁のすぐ外の砂地: サンゴのかけらが散らばり、ところどころにカイメン
+        const r4 = h(cx, cz, 404);
+        if (h(cx, cz, 405) < 0.15) put('sponge', 0.7 + r4 * 0.8, r4 * 6.3, SPONGE_COLS[Math.floor(h(cx, cz, 406) * SPONGE_COLS.length)], 1);
+        else put('rubble', 0.9 + r4 * 0.6, r4 * 6.3, null, 1);
+        if (r1 < 0.03) put('cucumber', 0.8 + r2 * 0.6, r2 * 6.3);
       } else {
         if (r1 < 0.03) put('cucumber', 0.8 + r2 * 0.6, r2 * 6.3);
         else if (ad < 7 && rm < 0.42) {                               // 浅い砂地は海草の藻場（ところどころ、まとまって）
@@ -837,11 +908,15 @@ const BOTTOM_INFO = {
   cucumber: ['クロナマコ', 'Holothuria atra', '浅い砂地', '砂を飲み込んで、中の有機物を食べ、きれいになった砂を出す。礁の砂の掃除屋。'],
   fan: ['ウミウチワの仲間', 'Annella spp.（ヤギ目）', '礁の斜面（水深 6m より深い所）', '平たい扇の形に枝を広げる。流れに直角に立って、流れてくるプランクトンを小さなポリプでとらえる。'],
   leather: ['ウミキノコの仲間', 'Sarcophyton spp.', '浅い礁の岩場', '骨格を持たない、やわらかいサンゴ（ソフトコーラル）。きのこのような笠に、細かなポリプが開く。'],
-  grass: ['ウミショウブ', 'Enhalus acoroides', '浅い砂地（礁湖の藻場）', '海の中で花を咲かせる海草。グアムのココス島の礁湖などに藻場をつくり、ウミガメのえさ場になる。']
+  grass: ['ウミショウブ', 'Enhalus acoroides', '浅い砂地（礁湖の藻場）', '海の中で花を咲かせる海草。グアムのココス島の礁湖などに藻場をつくり、ウミガメのえさ場になる。'],
+  sponge: ['カイメンの仲間', 'Porifera（海綿動物）', '浅い礁の岩場', '体じゅうの小さな穴から海水を吸い込み、中の小さな粒をこしとって、筒の口から吐き出す。いちばん古いタイプの動物のひとつ。'],
+  softcoral: ['トゲトサカの仲間', 'Dendronephthya spp.', '礁の岩場（潮の流れる所）', '骨格を持たないソフトコーラル。半透明の幹と枝の先に、色鮮やかなポリプが集まる。流れがあると体をふくらませてプランクトンを捕る。'],
+  whip: ['ムチヤギの仲間', 'Ellisellidae（ムチヤギ科）', '礁の斜面（水深 4m より深い所）', '細く長いむちのような群体。流れに向かって揺れながら、ポリプでプランクトンを捕る。'],
+  rubble: ['', '', '', '']
 };
 Object.entries(BOTTOM_INFO).forEach(([k, [name, sci, where, note]]) => {
-  const b = BOTTOM[k];
-  b.def = D(k, name, sci, 1, 40, where, note, thumbMesh(() => GEO[k].clone(), k === 'fan' ? 0xd93a33 : 0xffffff, 0));
+  const b = BOTTOM[k]; if (b.plain) return;
+  b.def = D(k, name, sci, 1, 40, where, note, thumbMesh(() => GEO[k].clone(), { fan: 0xd93a33, sponge: 0x9e4cae, softcoral: 0xff7399, whip: 0xe6733a }[k] || 0xffffff, 0));
   REEF_SPECIES.push(b.def);
 });
 BIG.forEach(b => {

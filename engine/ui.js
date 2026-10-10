@@ -289,9 +289,14 @@ const baseBox = box({ lon0: BB.lon0, lat0: BB.lat0, step: BB.step, nlon: T.NX, n
 // 細かい背景画像（config の map。地図を初めて開いたときに読み込む）。読み込むまでは粗い格子の画像を使う
 const hiMap = O.map ? { img: null, b: { x0: T.toX(O.map.box[2]), x1: T.toX(O.map.box[3]), z0: T.toZ(O.map.box[1]), z1: T.toZ(O.map.box[0]) } } : null;
 function loadHiMap() {
-  if (!hiMap || hiMap.loading) return; hiMap.loading = true;
-  const im = new Image(); im.onload = () => { hiMap.img = im; drawMap(); }; im.src = O.map.src;
+  if (!hiMap || hiMap.loading || hiMap.img) return; hiMap.loading = true;
+  const im = new Image();
+  im.onload = () => { hiMap.img = im; hiMap.loading = false; drawMap(); };
+  im.onerror = () => { hiMap.loading = false; hiMap.tries = (hiMap.tries || 0) + 1; if (hiMap.tries < 4) setTimeout(loadHiMap, 4000 * hiMap.tries); };   // 失敗したら、少し待って読み込み直す
+  im.src = O.map.src;
 }
+// 地図を開く前から、裏で読み込んでおく（開いたときに、粗い代わりの画像が見えないように）
+if (hiMap) setTimeout(loadHiMap, 3000);
 // 島の衛星写真は、陸と浅い礁だけを切り抜いて重ねる（写真の外洋は灰色や暗い色で、地図の海の色と合わないため）
 let satMaskImg = null;
 function satMasked(co) {
@@ -311,7 +316,16 @@ function satMasked(co) {
   return (satMaskImg = c);
 }
 // 島のまわり（陸地を含む細かい地形）は、拡大したときのために、さらに細かい画像を重ねる
-const detailImgs = (T.DETAIL || []).filter(D => D.name && D.name.includes('島')).map(D => ({ img: gridImage(D), b: box(D) }));
+// （細かい背景画像を読み込むまでの代わり。縁はぼかして、まわりの粗い画像になじませる。くっきりした四角が見えないように）
+function featherEdges(c, f = 0.08) {
+  const x = c.getContext('2d'), W = c.width, H = c.height, m = document.createElement('canvas'); m.width = W; m.height = H;
+  const mx = m.getContext('2d'), gx = mx.createLinearGradient(0, 0, W, 0), gy = mx.createLinearGradient(0, 0, 0, H);
+  [[0, 0], [f, 1], [1 - f, 1], [1, 0]].forEach(([o, a]) => { gx.addColorStop(o, `rgba(0,0,0,${a})`); gy.addColorStop(o, `rgba(0,0,0,${a})`); });
+  mx.fillStyle = gx; mx.fillRect(0, 0, W, H); mx.globalCompositeOperation = 'destination-in'; mx.fillStyle = gy; mx.fillRect(0, 0, W, H);
+  x.globalCompositeOperation = 'destination-in'; x.drawImage(m, 0, 0); x.globalCompositeOperation = 'source-over';
+  return c;
+}
+const detailImgs = (T.DETAIL || []).filter(D => D.name && D.name.includes('島')).map(D => ({ img: featherEdges(gridImage(D)), b: box(D) }));
 const dmap = $('dmap'), dctx = dmap.getContext('2d');
 const view = { cx: 0, cz: 0, k: 1 };            // 画面の中心（km）と、1km あたりの画素数
 let sel = null, mapOpen = false;

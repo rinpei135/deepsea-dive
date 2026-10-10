@@ -59,7 +59,7 @@ function swimmer(size, o) {
   const R = new THREE.Vector3();
   function animate(t, speed = 1, rec) {
     const sp = Math.min(2, Math.max(0.3, speed || 1));
-    ph = t * Math.PI * 2 * o.freq * (0.75 + 0.25 * sp); A = 0.85 + 0.15 * sp;
+    ph = t * Math.PI * 2 * o.freq * (0.75 + 0.25 * sp); A = speed === 0 ? 0 : 0.85 + 0.15 * sp;   // 速さ 0: 体を曲げない、まっすぐな姿勢（焼き付け・図鑑の絵）
     hull.userData.update(center, o.W, o.H, o.shape);
     // 頭の振れ: 尾を振ると、反動で頭が反対へ少し振れる（体全体が、尾と逆の向きにわずかに揺れる）
     const rc = (o.recoil == null ? 0.004 : o.recoil) * A * Math.sin(ph + 0.6);
@@ -993,10 +993,183 @@ function buildManta(size) {
   }));
 }
 
+// ---------- 外洋の群れの魚とイルカ（pelagic.js が、細かい形を 1 つの形に焼き付けて、まとめて描く） ----------
+// キハダ（Thunnus albacares）: 体長 1〜2m。紡錘形で、背は金属のような濃い紺、目から尾へ金色の帯。腹は銀白色で、細い白い線が縦に並ぶ。
+// 大人は第 2 背びれとしりびれが鎌のように長く伸び、鮮やかな黄色。小離鰭も黄色で、縁が黒い。胸びれは長く、第 2 背びれの下まで届く
+function buildYellowfin(size) {
+  const W = curve([0, 0.04, 0.15, 0.35, 0.6, 0.82, 0.93, 1], [0.008, 0.045, 0.086, 0.1, 0.08, 0.032, 0.012, 0.011]);
+  const H = curve([0, 0.04, 0.15, 0.35, 0.6, 0.82, 0.93, 1], [0.008, 0.052, 0.104, 0.126, 0.095, 0.036, 0.014, 0.013]);
+  const map = tex('yellowfin', 1024, 512, (x, Wd, Ht) => {
+    const gr = x.createLinearGradient(0, 0, Wd, 0);
+    [[0, '#c4ccd6'], [0.07, '#3a4f7e'], [0.15, '#14204a'], [0.25, '#0c1638'], [0.35, '#14204a'], [0.43, '#3a4f7e'], [0.5, '#c4ccd6'], [0.6, '#e2e6ea'], [0.75, '#f2f3f4'], [0.9, '#e2e6ea'], [1, '#c4ccd6']].forEach(([o, c]) => gr.addColorStop(o, c));
+    x.fillStyle = gr; x.fillRect(0, 0, Wd, Ht);
+    mottle(x, Wd, Ht, 60, 10, 30, 'rgba(60,80,160,.2)', 0.05, 0.9, [0.12, 0.38]);
+    // 金色の帯（目の後ろから尾の手前まで。後ろほど細く淡い）
+    x.filter = 'blur(4px)';
+    for (const u of [0.065, 0.435]) for (let i = 0; i < 40; i++) { const y = 0.1 + i * 0.019, w = 26 * (1 - i / 48); x.fillStyle = `rgba(235,195,60,${0.75 * (1 - i / 46)})`; x.fillRect(u * Wd - w / 2, y * Ht, w, 0.022 * Ht); }
+    x.filter = 'none';
+    // 腹の、縦に並ぶ細い白い線（切れ切れ）
+    x.strokeStyle = 'rgba(255,255,255,.55)'; x.lineWidth = 2;
+    for (let i = 0; i < 26; i++) { const y = (0.28 + i * 0.022) * Ht; for (const [u0, u1] of [[0.55, 0.68], [0.82, 0.95]]) { x.beginPath(); x.moveTo(u0 * Wd, y); for (let u = u0; u < u1; u += 0.012) x[rnd() < 0.25 ? 'moveTo' : 'lineTo'](u * Wd, y + Math.sin(u * 80) * 2); x.stroke(); } }
+    x.strokeStyle = 'rgba(20,28,50,.6)'; x.lineWidth = 2.5;            // えらぶたの縁と口の線
+    for (const um of [0.02, 0.48]) { x.beginPath(); x.moveTo((um - 0.07) * Wd, 0.17 * Ht); x.quadraticCurveTo(um * Wd, 0.19 * Ht, (um + 0.07) * Wd, 0.17 * Ht); x.stroke(); }
+    for (const um of [0.97, 0.53]) { x.beginPath(); x.moveTo(0.75 * Wd, 0.005 * Ht); x.lineTo(um * Wd, 0.065 * Ht); x.stroke(); }
+  });
+  const skinM = new THREE.MeshPhysicalMaterial({ map, metalness: 0.45, roughness: 0.27, clearcoat: 0.9 });
+  const dark = [0.08, 0.1, 0.22], yel = [1.0, 0.8, 0.12], yel2 = [0.95, 0.72, 0.1], gray = [0.25, 0.28, 0.36];
+  const finlets = [];
+  for (let k = 0; k < 8; k++) { const s = 0.6 + k * 0.034; finlets.push({ s0: s, s1: s + 0.02, up: 1, n: 2, h: u => 0.018 - 0.009 * u, back: 0.8, c0: yel2, c1: [0.25, 0.2, 0.05] }); }
+  for (let k = 0; k < 7; k++) { const s = 0.63 + k * 0.034; finlets.push({ s0: s, s1: s + 0.02, up: -1, n: 2, h: u => 0.016 - 0.008 * u, back: 0.8, c0: yel2, c1: [0.25, 0.2, 0.05] }); }
+  return swimmer(size, {
+    W, H, skinM, NS: 72, NR: 36, rigid: true, amp: () => 0, k: 0, freq: 2.6, tailBeat: 0.3, recoil: 0.001,
+    fins: [{ s0: 0.27, s1: 0.44, up: 1, n: 10, rays: true, h: u => 0.09 * Math.pow(1 - u, 1.3) + 0.004, back: 0.3, c0: dark, c1: mix3(dark, yel, 0.3) },
+      { s0: 0.47, s1: 0.55, up: 1, n: 8, h: u => 0.19 * Math.pow(1 - u, 1.1) * Math.min(1, 0.35 + u * 6) + 0.006, back: 0.85, c0: yel2, c1: yel },     // 鎌のような第 2 背びれ
+      { s0: 0.5, s1: 0.58, up: -1, n: 8, h: u => 0.18 * Math.pow(1 - u, 1.1) * Math.min(1, 0.35 + u * 6) + 0.006, back: 0.85, c0: yel2, c1: yel },     // しりびれ
+      ...finlets,
+      ...[1, -1].flatMap(sd => [{ s0: 0.86, s1: 0.98, side: sd, n: 6, h: u => 0.016 * Math.sin(Math.PI * u), back: 0.2, c0: dark, c1: dark }])],
+    tails: [{ rotZ: Math.PI / 2, c: a => mix3(gray, [0.35, 0.33, 0.22], a), foil: { span: 0.17, both: true, nA: 16, le: a => -0.004 - 0.12 * Math.pow(a, 1.5), te: a => -0.004 - 0.12 * Math.pow(a, 1.5) - 0.036 * (1 - a) - 0.006, th: a => 0.009 * (1 - a) + 0.0015 } }],
+    pecs: [{ s: 0.24, th: -0.1, rot: [0.12, -1.05, -0.3], c: a => mix3(dark, [0.4, 0.42, 0.5], a), foil: { span: 0.22, le: a => -0.05 * a * a, te: a => -0.05 * a * a - 0.04 * (1 - 0.8 * a) - 0.004, th: a => 0.007 * (1 - a) + 0.001 } }],
+    extra: ctx => { ctx.eyes = addEyes(ctx, 0.07, 0.12, 0.016, 0x8a7a40); },
+    onAnim: (t, ph, ctx) => ctx.eyes()
+  });
+}
+
+// ハシナガイルカ（Stenella longirostris）: 体長 2m ほどの細身のイルカ。細く長いくちばし。体は 3 色: 背は濃い灰色（ケープ）、わき腹は淡い灰色、腹は白。
+// 目から胸びれへ暗い線。背びれは三角形で立ち、尾びれは横に広がる。群れで泳ぎ、海面から跳び出してきりもみ回転する
+function buildSpinnerDolphin(size) {
+  const W = curve([0, 0.05, 0.16, 0.36, 0.6, 0.8, 0.92, 1], [0.018, 0.048, 0.078, 0.088, 0.07, 0.038, 0.016, 0.011]);
+  const H = curve([0, 0.05, 0.16, 0.36, 0.6, 0.8, 0.92, 1], [0.018, 0.052, 0.085, 0.098, 0.082, 0.05, 0.026, 0.015]);
+  const map = tex('spinner', 1024, 512, (x, Wd, Ht) => {
+    const gr = x.createLinearGradient(0, 0, Wd, 0);
+    [[0, '#737b85'], [0.08, '#5f6770'], [0.14, '#1f2329'], [0.25, '#16191e'], [0.36, '#1f2329'], [0.42, '#5f6770'], [0.5, '#737b85'], [0.6, '#b4b9bd'], [0.67, '#e6e5e2'], [0.75, '#f0efec'], [0.83, '#e6e5e2'], [0.9, '#b4b9bd'], [1, '#737b85']].forEach(([o, c]) => gr.addColorStop(o, c));
+    x.fillStyle = gr; x.fillRect(0, 0, Wd, Ht);
+    // ケープの下の縁は、背びれの下で少し下がる（波打つ境目）
+    x.filter = 'blur(6px)'; x.fillStyle = 'rgba(28,31,37,.85)';
+    for (const [u0, dir] of [[0.16, -1], [0.34, 1]]) { x.beginPath(); x.moveTo(u0 * Wd, 0); for (let y = 0; y <= 1.0001; y += 0.02) x.lineTo((u0 + dir * 0.05 * Math.sin(Math.PI * Math.min(1, Math.max(0, (y - 0.25) / 0.45)))) * Wd, y * Ht); x.lineTo(0.25 * Wd, Ht); x.lineTo(0.25 * Wd, 0); x.fill(); }
+    // 目から胸びれへの暗い線
+    x.strokeStyle = 'rgba(45,50,58,.85)'; x.lineWidth = 9;
+    for (const [ue, dir] of [[0.03, 1], [0.47, -1]]) { x.beginPath(); x.moveTo(ue * Wd, 0.07 * Ht); x.quadraticCurveTo((ue - dir * 0.03) * Wd, 0.14 * Ht, (ue - dir * 0.09) * Wd, 0.22 * Ht); x.stroke(); }
+    x.filter = 'none';
+    mottle(x, Wd, Ht, 40, 6, 18, 'rgba(255,255,255,.1)', 0.1, 0.9, [0.1, 0.4]);   // 古い傷跡
+  });
+  const skinM = skin({ color: 0xffffff, map, rim: 0x9aa4ae, rimAmount: 0.15, clearcoat: 0.8, roughness: 0.3, side: THREE.FrontSide, bump: 0.2 });
+  const dark = [0.2, 0.22, 0.26];
+  return swimmer(size, {
+    W, H, skinM, NS: 64, NR: 32, vertical: true, amp: s => 0.05 * Math.pow(s, 2), k: 2.5, freq: 1.5, tailBeat: 0.2,
+    yc: s => 0.006 * Math.sin(Math.PI * s),
+    fins: [{ s0: 0.42, s1: 0.56, up: 1, n: 10, h: u => 0.1 * Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.15)), 0.7) * (1 - 0.2 * u), back: 0.55, c0: dark, c1: dark }],
+    tails: [{ rotZ: 0, c: () => dark, foil: { span: 0.13, both: true, le: a => -0.005 - 0.07 * Math.pow(a, 1.4), te: a => -0.03 - 0.06 * Math.pow(a, 1.4) + 0.02 * Math.exp(-a * 12) - 0.01, th: a => 0.012 * (1 - a) + 0.002 } }],
+    pecs: [{ s: 0.21, th: -0.6, rot: [0.25, -0.75, -0.45], c: () => dark, foil: { span: 0.12, le: a => -0.03 * a * a, te: a => -0.03 * a * a - 0.04 * (1 - 0.6 * a) - 0.006, th: a => 0.01 * (1 - a) + 0.002 } }],
+    extra: ctx => {
+      const beakM = skin({ color: 0xffffff, vertexColors: true, rim: 0x9aa4ae, rimAmount: 0.15, clearcoat: 0.8, roughness: 0.32 });
+      const bg = new THREE.CylinderGeometry(0.006, 0.016, 0.1, 12, 4).rotateX(Math.PI / 2).translate(0, 0, 0.05), bp = bg.attributes.position, bc = new Float32Array(bp.count * 3);
+      for (let i = 0; i < bp.count; i++) { const c = bp.getY(i) > 0.002 ? [0.24, 0.26, 0.3] : [0.85, 0.85, 0.84]; bc.set(c, i * 3); bp.setY(i, bp.getY(i) * 0.75); }
+      bg.setAttribute('color', new THREE.BufferAttribute(bc, 3)); bg.computeVertexNormals();
+      const beak = new THREE.Mesh(bg, beakM); beak.position.set(0, -0.012, 0.49); ctx.body.add(beak);   // 細く長いくちばし（上は暗く、下は白い）
+      const hole = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: 0x15181c })); hole.scale.set(0.008, 0.002, 0.004); ctx.body.add(hole); ctx.hole = hole;   // 噴気孔
+      ctx.eyes = addEyes(ctx, 0.07, -0.05, 0.007, 0x2a2e34);
+    },
+    onAnim: (t, ph, ctx) => { ctx.surf(0.13, Math.PI / 2, ctx.hole.position); ctx.eyes(); }
+  });
+}
+
+// シイラ（Coryphaena hippurus）: 体長 1m ほど。左右に平たく、頭から尾へ細くなる体。大人の雄はおでこが四角く盛り上がる。
+// 頭のすぐ後ろから尾の手前まで、長い背びれ（濃い青）。体は金色がかった黄緑から、背は青緑、腹は黄色。わき腹に青や黒の小さな斑点。尾びれは深く二股
+function buildMahi(size) {
+  const W = curve([0, 0.05, 0.2, 0.45, 0.75, 0.92, 1], [0.012, 0.035, 0.05, 0.046, 0.03, 0.014, 0.01]);
+  const H = curve([0, 0.05, 0.12, 0.3, 0.6, 0.85, 0.95, 1], [0.03, 0.1, 0.13, 0.12, 0.085, 0.04, 0.018, 0.014]);
+  const map = tex('mahi', 1024, 512, (x, Wd, Ht) => {
+    const gr = x.createLinearGradient(0, 0, Wd, 0);
+    [[0, '#b9c84a'], [0.12, '#4a9a7a'], [0.25, '#1e5f78'], [0.38, '#4a9a7a'], [0.5, '#b9c84a'], [0.62, '#e8d64a'], [0.75, '#f2df5a'], [0.88, '#e8d64a'], [1, '#b9c84a']].forEach(([o, c]) => gr.addColorStop(o, c));
+    x.fillStyle = gr; x.fillRect(0, 0, Wd, Ht);
+    mottle(x, Wd, Ht, 80, 14, 40, 'rgba(60,170,170,.25)', 0, 1, [0.05, 0.45]);   // 青緑のつや
+    for (let i = 0; i < 260; i++) { const u = rnd(), y = 0.12 + rnd() * 0.75; if (Math.abs(((u + 0.25) % 0.5) - 0.25) < 0.05) continue; x.fillStyle = rnd() < 0.7 ? 'rgba(40,90,200,.75)' : 'rgba(20,30,40,.7)'; x.beginPath(); x.arc(u * Wd, y * Ht, 2 + rnd() * 3.5, 0, 7); x.fill(); }   // 青と黒の斑点
+  });
+  const skinM = new THREE.MeshPhysicalMaterial({ map, metalness: 0.35, roughness: 0.3, clearcoat: 0.8 });
+  const blue = [0.1, 0.25, 0.6], gold = [0.85, 0.82, 0.3];
+  return swimmer(size, {
+    W, H, skinM, NS: 64, NR: 32, amp: s => 0.04 + 0.05 * s * s, k: 4.5, freq: 1.8, tailBeat: 0.2,
+    yc: s => 0.03 * Math.exp(-Math.pow((s - 0.05) / 0.08, 2)),
+    shape: (s, th) => { const sn = Math.sin(th); return 1 + (sn > 0 ? 0.25 * (1 - ss(0.02, 0.15, s)) * sn : 0); },   // 四角く盛り上がったおでこ
+    fins: [{ s0: 0.08, s1: 0.9, up: 1, n: 30, rays: true, h: u => 0.07 * (1 - 0.55 * u) * Math.min(1, u * 12 + 0.3) + 0.004, back: 0.4, c0: blue, c1: [0.15, 0.35, 0.75] },
+      { s0: 0.5, s1: 0.9, up: -1, n: 14, rays: true, h: u => 0.045 * (1 - 0.5 * u) + 0.003, back: 0.4, c0: gold, c1: [0.75, 0.75, 0.4] }],
+    tails: [{ rotZ: Math.PI / 2, c: a => mix3(gold, [0.7, 0.8, 0.4], a), foil: { span: 0.17, both: true, nA: 16, le: a => -0.005 - 0.11 * Math.pow(a, 1.3), te: a => -0.005 - 0.11 * Math.pow(a, 1.3) - 0.05 * (1 - a) - 0.008, th: a => 0.008 * (1 - a) + 0.0015 } }],
+    pecs: [{ s: 0.2, th: -0.25, rot: [0.15, -0.9, -0.2], c: () => [0.6, 0.7, 0.5], foil: { span: 0.08, le: a => -0.02 * a, te: a => -0.02 * a - 0.035 * (1 - 0.6 * a) - 0.004, th: () => 0.005 } }],
+    extra: ctx => { ctx.eyes = addEyes(ctx, 0.06, 0.05, 0.013, 0x8a8a40); },
+    onAnim: (t, ph, ctx) => ctx.eyes()
+  });
+}
+
+// トビウオ（ツクシトビウオの仲間, Cheilopogon spp.）: 体長 30cm ほど。円筒形の体と、体長ほどもある大きな胸びれ（翼）、大きな腹びれ。
+// 背は濃い青、腹は銀白色。翼は透けた青灰色に、濃い筋。尾びれは下の葉が長い（海面をたたいて飛び立つ）
+function buildFlyingfish(size) {
+  const W = curve([0, 0.06, 0.25, 0.55, 0.85, 1], [0.02, 0.055, 0.075, 0.065, 0.03, 0.016]);
+  const H = curve([0, 0.06, 0.25, 0.55, 0.85, 1], [0.02, 0.055, 0.08, 0.07, 0.034, 0.018]);
+  const map = tex('flyingfish', 512, 256, (x, Wd, Ht) => {
+    const gr = x.createLinearGradient(0, 0, Wd, 0);
+    [[0, '#a8b8cc'], [0.1, '#2a4a8a'], [0.25, '#16285a'], [0.4, '#2a4a8a'], [0.5, '#a8b8cc'], [0.62, '#dfe6ec'], [0.75, '#f0f3f5'], [0.88, '#dfe6ec'], [1, '#a8b8cc']].forEach(([o, c]) => gr.addColorStop(o, c));
+    x.fillStyle = gr; x.fillRect(0, 0, Wd, Ht);
+  });
+  const skinM = new THREE.MeshPhysicalMaterial({ map, metalness: 0.45, roughness: 0.28, clearcoat: 0.8 });
+  const wing = (a, y, z) => mix3([0.3, 0.42, 0.62], [0.55, 0.68, 0.82], a).map(v => v * (Math.sin(z * 140 + a * 3) > 0.55 ? 0.7 : 1));   // 翼の筋
+  const dark = [0.15, 0.25, 0.45];
+  return swimmer(size, {
+    W, H, skinM, NS: 48, NR: 24, amp: s => 0.03 + 0.05 * s * s, k: 4, freq: 3, tailBeat: 0.2,
+    fins: [{ s0: 0.6, s1: 0.75, up: 1, n: 6, h: u => 0.05 * Math.sin(Math.PI * u), back: 0.5, c0: dark, c1: dark },
+      { s0: 0.62, s1: 0.76, up: -1, n: 6, h: u => 0.04 * Math.sin(Math.PI * u), back: 0.5, c0: [0.6, 0.65, 0.72], c1: [0.6, 0.65, 0.72] }],
+    tails: [{ rotZ: Math.PI / 2, c: () => dark, foil: { span: 0.12, le: a => -0.08 * a, te: a => -0.08 * a - 0.05 * (1 - a) - 0.01, th: a => 0.008 * (1 - a) + 0.0015 } },
+      { rotZ: -Math.PI / 2, c: () => dark, foil: { span: 0.17, le: a => -0.12 * a, te: a => -0.12 * a - 0.06 * (1 - a) - 0.01, th: a => 0.008 * (1 - a) + 0.0015 } }],   // 下の葉が長い
+    pecs: [{ s: 0.22, th: 0.1, rot: [0.02, -0.55, -0.08], c: wing, mat: finMat(0.8, 0.4), foil: { span: 0.62, nA: 16, le: a => -0.1 * a * a, te: a => -0.1 * a * a - 0.16 * Math.sin(Math.PI * Math.min(1, 0.25 + a * 0.85)) - 0.02, th: a => 0.006 * (1 - a) + 0.001 } },   // 大きな翼
+      { s: 0.5, th: -0.6, rot: [0.02, -0.5, -0.05], c: wing, mat: finMat(0.8, 0.4), foil: { span: 0.22, le: a => -0.05 * a * a, te: a => -0.05 * a * a - 0.07 * (1 - 0.5 * a) - 0.01, th: () => 0.004 } }],   // 腹びれ（小さな翼）
+    extra: ctx => { ctx.eyes = addEyes(ctx, 0.07, 0.15, 0.018, 0x9aa8b8); },
+    onAnim: (t, ph, ctx) => ctx.eyes()
+  });
+}
+
+// 細かく作った体を、1 つの形に焼き付ける（まっすぐ泳ぐ姿勢で。模様の画像の色は、頂点の色に写す）。
+// 頭を +x、体長 1、中心が原点にそろえる（reef.js の魚の形と同じ向き。揺れはシェーダーで付ける）
+const BAKE_PIX = new WeakMap();
+function bakePixels(t) {
+  if (BAKE_PIX.has(t)) return BAKE_PIX.get(t);
+  let r = null; const im = t.image;
+  if (im && im.width) { const c = document.createElement('canvas'); c.width = Math.min(512, im.width); c.height = Math.min(512, im.height); const x = c.getContext('2d'); x.drawImage(im, 0, 0, c.width, c.height); r = { W: c.width, H: c.height, d: x.getImageData(0, 0, c.width, c.height).data }; }
+  BAKE_PIX.set(t, r); return r;
+}
+function bakeSpecies(name) {
+  const b = window.SPECIES[name](1); b.animate(0, 0);
+  const g = b.group; g.updateMatrixWorld(true);
+  const parts = [], white = new THREE.Color(1, 1, 1);
+  g.traverse(o => {
+    if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
+    const m = [].concat(o.material)[0];
+    const geo = o.geometry.clone(); if (!geo.attributes.normal) geo.computeVertexNormals();   // 頂点を共有したまま（番号付きのまま）まとめる（頂点の数を少なく）
+    geo.applyMatrix4(o.matrixWorld);
+    const n = geo.attributes.position.count, col = new Float32Array(n * 3), base = m.color || white, vc = m.vertexColors && geo.attributes.color, uv = geo.attributes.uv, px = m.map && uv ? bakePixels(m.map) : null;
+    for (let i = 0; i < n; i++) {
+      let r = 1, gg = 1, bb = 1;
+      if (px) { let u = uv.getX(i), v = uv.getY(i); u -= Math.floor(u); v = Math.min(1, Math.max(0, v)); const k = (Math.min(px.H - 1, Math.floor((m.map.flipY ? 1 - v : v) * px.H)) * px.W + Math.min(px.W - 1, Math.floor(u * px.W))) * 4; r = px.d[k] / 255; gg = px.d[k + 1] / 255; bb = px.d[k + 2] / 255; }
+      col[i * 3] = base.r * r * (vc ? vc.getX(i) : 1); col[i * 3 + 1] = base.g * gg * (vc ? vc.getY(i) : 1); col[i * 3 + 2] = base.b * bb * (vc ? vc.getZ(i) : 1);
+    }
+    const idx = geo.index ? Array.from(geo.index.array) : Array.from({ length: n }, (_, i) => i);
+    parts.push({ pos: geo.attributes.position.array, nor: geo.attributes.normal.array, col, idx, n });
+  });
+  let n = 0, ni = 0; parts.forEach(q => { n += q.n; ni += q.idx.length; });
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3), index = new Uint32Array(ni); let o = 0, oi = 0;
+  parts.forEach(q => { pos.set(q.pos, o * 3); nor.set(q.nor, o * 3); col.set(q.col, o * 3); for (let k = 0; k < q.idx.length; k++) index[oi + k] = q.idx[k] + o; o += q.n; oi += q.idx.length; });
+  const out = new THREE.BufferGeometry(); out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); out.setAttribute('color', new THREE.BufferAttribute(col, 3)); out.setIndex(new THREE.BufferAttribute(index, 1));
+  out.rotateY(Math.PI / 2);                                             // +z 前 → +x 前
+  out.computeBoundingBox(); const bx = out.boundingBox, L = bx.max.x - bx.min.x;
+  out.translate(-(bx.max.x + bx.min.x) / 2, 0, 0); out.scale(1 / L, 1 / L, 1 / L);
+  if (b.dispose) b.dispose();
+  return out;
+}
+window.SPECIES_BAKE = bakeSpecies;
+
 window.SPECIES = Object.assign(window.SPECIES || {}, {
   marlin: buildMarlin, whaleshark: buildWhaleShark, oceanicwhitetip: buildOceanicWhitetip, mola: buildMola, skipjack: buildSkipjackSchool,
   humpback: buildHumpback, manowar: buildManOWar, moonjelly: buildMoonJelly, combjelly: buildCombJelly, salp: buildSalpChain,
   pyrosome: buildPyrosome, barreleye: buildBarreleye, oarfish: buildOarfish, siphonophore: buildSiphonophore, frilledshark: buildFrilledShark, giantascidian: buildGiantAscidian,
-  reefWhitetip: buildReefWhitetip, napoleon: buildNapoleon, eagleRay: buildEagleRay, reefManta: buildManta
+  reefWhitetip: buildReefWhitetip, napoleon: buildNapoleon, eagleRay: buildEagleRay, reefManta: buildManta,
+  yellowfin: buildYellowfin, spinnerDolphin: buildSpinnerDolphin, mahi: buildMahi, flyingfish: buildFlyingfish
 });
 })();

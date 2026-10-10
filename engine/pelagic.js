@@ -76,7 +76,10 @@ function dolphinGeo() {
   return K.merge(parts);
 }
 // 尾を上下に振って泳ぐ（魚は左右、イルカは上下）
-const dol = { mesh: mesh(dolphinGeo(), { roughness: 0.3, metalness: 0.05 }, 5, [], 24), pod: null, next: 25 + Math.random() * 30 };
+// 細かく作った体（species2.js）を焼き付けた形があれば、それを使う
+const BAKE = n => window.SPECIES_BAKE && window.SPECIES && window.SPECIES[n] ? window.SPECIES_BAKE(n) : null;
+const dolGeo = () => BAKE('spinnerDolphin') || dolphinGeo();
+const dol = { mesh: mesh(dolGeo(), { roughness: 0.3, metalness: 0.05 }, 5, [], 24), pod: null, next: 25 + Math.random() * 30 };
 function dolphinFrame(dt, t, px, pz, camD, floorHere, show) {
   const m = dol.mesh;
   if (!dol.pod) {
@@ -133,7 +136,8 @@ function flyingGeo() {
   };
   return K.merge([body, wing(-1, 0.72, 0.62, 0.45, [0.45, 0.58, 0.78]), wing(1, 0.72, 0.62, 0.45, [0.45, 0.58, 0.78]), wing(-1, 0.42, 0.2, 0.2, [0.5, 0.6, 0.75]), wing(1, 0.42, 0.2, 0.2, [0.5, 0.6, 0.75])]);
 }
-const ff = { mesh: mesh(flyingGeo(), { roughness: 0.25, metalness: 0.3 }, 0, [], 30), list: [], next: 6 };
+const ffGeo = () => BAKE('flyingfish') || flyingGeo();
+const ff = { mesh: mesh(ffGeo(), { roughness: 0.25, metalness: 0.3 }, 0, [], 30), list: [], next: 6 };
 function flyingFrame(dt, t, px, pz, camD, floorHere, show, fwx, fwz) {
   ff.next -= dt;
   if (show && ff.next < 0 && camD < 6 && floorHere > 20 && ff.list.length < 20) {
@@ -165,7 +169,8 @@ function flyingFrame(dt, t, px, pz, camD, floorHere, show, fwx, fwz) {
 const tunaGeo = () => K.fishGeo({ hgt: 0.26, wid: 0.18, mx: 0.45, snout: 1.3, top: 0.12, ped: 0.05, tail: { len: 0.32, fork: 0.95, lobe: 1.0 }, dorsal: [0.38, 0.52, 0.55, 2.4], dorsal2: [0.62, 0.78, 0.22], anal: [0.3, 0.42, 0.6, 2.6], finlets: 7, eye: [0.8, 0.75, 0.6],
   pat: (u, v) => Math.abs(v - 0.22) < 0.07 && u > 0.2 && u < 0.8 ? [0.95, 0.8, 0.25] : K.mixc([0.86, 0.88, 0.9], [0.08, 0.13, 0.35], Math.max(0, v + 0.05) * 1.6),
   fin: (p, s) => p === 'dorsal' || p === 'anal' || p === 'finlet' ? [1.0, 0.85, 0.2] : p === 'tail' ? [0.15, 0.2, 0.35] : [0.3, 0.35, 0.5] }, 0);
-const tuna = { mesh: K.instanced(tunaGeo(), K.silverMat, 60), sc: null, next: 40 + Math.random() * 40 };
+const tunaGeo2 = () => BAKE('yellowfin') || tunaGeo();
+const tuna = { mesh: K.instanced(tunaGeo2(), K.silverMat, 60), sc: null, next: 40 + Math.random() * 40 };
 function tunaFrame(dt, t, px, pz, camD, floorHere, show) {
   const m = tuna.mesh;
   if (!tuna.sc) {
@@ -203,7 +208,8 @@ const logs = { mesh: mesh(logGeo, { roughness: 0.95 }, 0, [], 6) };
 const mahiGeo = () => K.fishGeo({ hgt: 0.3, wid: 0.12, mx: 0.8, snout: 0.35, top: 0.45, ped: 0.06, tail: { len: 0.3, fork: 0.9, lobe: 0.6 }, dorsal: [0.15, 0.95, 0.22], anal: [0.15, 0.5, 0.15], eye: [0.85, 0.75, 0.3],
   pat: (u, v) => (Math.sin(u * 60) * Math.sin(v * 9) > 0.7 ? [0.25, 0.55, 0.95] : v > 0.3 ? [0.1, 0.5, 0.5] : v < -0.4 ? [1.0, 0.88, 0.35] : [0.6, 0.8, 0.25]),
   fin: (p, s) => p === 'dorsal' ? [0.15, 0.4, 0.75] : p === 'tail' ? [0.75, 0.75, 0.3] : [0.4, 0.6, 0.6] }, 0);
-const mahi = { mesh: mesh(mahiGeo(), { roughness: 0.3, metalness: 0.1 }, 1, [], 30, false) };
+const mahiGeo2 = () => BAKE('mahi') || mahiGeo();
+const mahi = { mesh: mesh(mahiGeo2(), { roughness: 0.3, metalness: 0.1 }, 1, [], 30, false) };
 function flotFrame(dt, t, px, pz, camD, show) {
   let nl = 0, nm = 0;
   const flots = [];
@@ -236,13 +242,13 @@ function flotFrame(dt, t, px, pz, camD, show) {
 const D = (k, name, sci, from, to, where, note, geo, rot) => K.D(k, name, sci, from, to, where, note, K.thumbMesh(geo, 0xffffff, rot));
 const DEF = {
   dolphin: D('dolphin', 'ハシナガイルカ', 'Stenella longirostris', 0, 50, '外洋の海面近く（グアムの西の湾に、毎朝のように群れが来る）',
-    '細長いくちばしのイルカ。数十頭の群れで泳ぎ、海面から高く跳び上がって、体の軸のまわりにくるくる回る。昼は湾で休み、夜は沖へ出てイカや小魚を食べる。', dolphinGeo),
+    '細長いくちばしのイルカ。数十頭の群れで泳ぎ、海面から高く跳び上がって、体の軸のまわりにくるくる回る。昼は湾で休み、夜は沖へ出てイカや小魚を食べる。', dolGeo),
   flyfish: D('flyfish', 'トビウオの仲間', 'Exocoetidae（トビウオ科）', 0, 20, '外洋の海面近く',
-    '翼のような大きな胸びれを持つ魚。シイラなどに追われると、海面から飛び出して胸びれを広げ、数十 m も滑空して逃げる。', flyingGeo, 0.5),
+    '翼のような大きな胸びれを持つ魚。シイラなどに追われると、海面から飛び出して胸びれを広げ、数十 m も滑空して逃げる。', ffGeo, 0.5),
   yellowfin: D('yellowfin', 'キハダ', 'Thunnus albacares', 0, 250, '外洋（水深 50m より深い海の、表層）',
-    '長く伸びた黄色い背びれとしりびれが目印のマグロ。群れで外洋を速く泳ぎ回り、小魚やイカを食べる。', tunaGeo),
+    '長く伸びた黄色い背びれとしりびれが目印のマグロ。群れで外洋を速く泳ぎ回り、小魚やイカを食べる。', tunaGeo2),
   mahi: D('mahi', 'シイラ', 'Coryphaena hippurus', 0, 30, '外洋の海面近く（流木や流れ藻の下）',
-    '金色と青緑にかがやく、額の切り立った魚。流木や流れ藻の下に集まる小魚を狙って、そのまわりを泳ぐ。グアムでも人気の釣りの魚。', mahiGeo)
+    '金色と青緑にかがやく、額の切り立った魚。流木や流れ藻の下に集まる小魚を狙って、そのまわりを泳ぐ。グアムでも人気の釣りの魚。', mahiGeo2)
 };
 Object.values(DEF).forEach(d => R.species.push(d));
 // 左の欄の「この深さで出会える生き物」: 外洋（水深 50m より深い海の上）の水深 40m より浅い所

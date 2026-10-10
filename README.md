@@ -33,7 +33,10 @@ engine/               すべての海で共通の仕組み
   sea.js              空・海面（ゲルストナー波）・光の筋・泡
   audio.js            BGM・環境音・効果音（Web Audio で合成）
   species.js          生き物の形と動き（プログラムで生成）
+  species2.js         外洋の大物の形と動き（写真を参考に細かく作った体。群れの魚は 1 つの形に焼き付けて軽く描く）
   creatures.js        生き物の住む場所と描画（カメラの周りをメートル単位の近景として重ねて描く。近くの海底も）
+  reef.js             サンゴ礁の生き物（魚の群れ・サンゴ・海底の生き物・ダイブポイント）
+  pelagic.js          外洋の海面近くの生き物（イルカ・トビウオ・キハダ・小魚の群れ・流木とシイラ）
   zukan.js            生き物図鑑と実績
   ui.js               計器・深度ルーラー・ボタン・ダイブマップ・画質（動きが重いときは描画の細かさを自動で下げる）
   post.js             仕上げ（HDR・光のにじみ・明るさの変換）
@@ -44,7 +47,10 @@ engine/               すべての海で共通の仕組み
 tools/
   record_preview.py   プレビュー動画の録画スクリプト
   update_versions.py  JS・CSS の読み込みに版番号を付ける
+  serve.py            手元で確かめるためのサーバー（python tools/serve.py）
   make_detail.py      海の一部を細かい地形にするデータ（detail.js）を作る
+  make_map.py         ダイブマップの背景画像（map.webp）を作る
+  make_guam.py        グアム島の衛星写真・細かい陸地のデータを作る
 seas/<海のID>/
   index.html          その海のページ（出典の記載を含む）
   bathy.js            海底地形データ（下記の形式）

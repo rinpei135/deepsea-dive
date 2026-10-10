@@ -747,6 +747,26 @@ let builtThisFrame = 0;
 // 形の作り直し（動き）も止める。自分で光る生き物は、まとめると光が消えるので、いつも 1 匹ずつ描く
 const FAR_LOOK = 0.05, FAR_MAX = 256;
 const FAR = {};
+// 遠くの簡単な形も、少しだけ動かす（止まった形のまま滑って見えないように）。形の中の位置で動かす（体の向きは +z が頭、+y が背、x が横）
+//   [動き方, 速さ（ラジアン/秒）, 大きさ]  1: ひれを上下にはばたく（ウミガメ・タコ）、2: 尾を左右に振る（魚・サメ）、3: 尾を上下に振る（クジラ）
+const FAR_T = { value: 0 };
+const FAR_WIGGLE = { turtle: [1, 3.1, 0.6], hawksbill: [1, 3.1, 0.6], dumbo: [1, 3.8, 0.5], spermwhale: [3, 1.3, 0.25], humpback: [3, 1.3, 0.25] };
+['marlin', 'whaleshark', 'oceanicwhitetip', 'mola', 'frilledshark', 'rattail', 'snailfish', 'viperfish', 'fangtooth', 'oarfish', 'barreleye'].forEach(k => { FAR_WIGGLE[k] = [2, 0, 0.25]; });
+const FAR_GLSL = `
+  float fs = uFarSize, fr = max(0.0, 0.1 - position.z / fs);
+  if (uFarMode > 0.5 && uFarMode < 1.5) transformed.y += sin(uFarT * uFarF + aPh) * uFarA * fs * max(0.0, abs(position.x) / fs - 0.18);
+  else if (uFarMode > 1.5 && uFarMode < 2.5) transformed.x += sin(uFarT * uFarF + aPh + position.z / fs * 5.0) * uFarA * fs * fr * fr;
+  else if (uFarMode > 2.5) transformed.y += sin(uFarT * uFarF + aPh + position.z / fs * 4.0) * uFarA * fs * fr * fr;`;
+function farWiggle(mat, def) {
+  const w = FAR_WIGGLE[def.kind] || [0, 0, 0], size = sizeOf(def);
+  const U = { uFarT: FAR_T, uFarMode: { value: w[0] }, uFarF: { value: w[1] || 2 * Math.PI * Math.min(2.5, Math.max(0.25, 1.4 / Math.sqrt(size))) }, uFarA: { value: w[2] }, uFarSize: { value: size } };
+  mat.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = 'uniform float uFarT, uFarMode, uFarF, uFarA, uFarSize; attribute float aPh;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + FAR_GLSL);
+  };
+  mat.customProgramCacheKey = () => 'far_wiggle';                     // 遠くの形はみな同じ仕組み（動き方は uniform で変える）
+  return mat;
+}
 const ONE = new THREE.Vector3(1, 1, 1), FAR_M = new THREE.Matrix4();
 function mergeParts(list) {
   let n = 0; list.forEach(p => n += p.geo.attributes.position.count);
@@ -802,7 +822,9 @@ function farFor(def) {
   dispose(body);
   const make = (list, mat) => {
     if (!list.length) return null;
-    const im = new THREE.InstancedMesh(mergeParts(list), mat, FAR_MAX);
+    const geo = mergeParts(list);
+    geo.setAttribute('aPh', new THREE.InstancedBufferAttribute(Float32Array.from({ length: FAR_MAX }, () => Math.random() * 6.283), 1));   // 1 匹ずつ動きをずらす
+    const im = new THREE.InstancedMesh(geo, farWiggle(mat, def), FAR_MAX);
     im.count = 0; im.frustumCulled = false; withCaustics(im); scene.add(im); return im;
   };
   const f = {
@@ -1190,7 +1212,7 @@ function update(dt, t, { dive, under, depth, view }) {
       if (!warmed) { if (warmWait++ === 0) UI.toast('潜航の準備をしています…'); else if (warmWait > 2) { warmAll(); warmed = true; } }   // 降下の演出の間は、ほかには作らない（画面が止まらないように）
     }
     return; }
-  frameNo++;
+  frameNo++; FAR_T.value = t;
   const px = S.x * 1000, pz = S.z * 1000, floorHere = floorAt(px, pz);
   // 潜水艇の速さ（m/秒。ワープのような瞬間移動は数えない）
   if (lastP && dt > 0) { const v = Math.hypot(px - lastP[0], pz - lastP[1], depth - lastP[2]) / dt; if (v < 2000) pSpeed += (v - pSpeed) * Math.min(1, dt * 5); }

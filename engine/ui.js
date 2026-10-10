@@ -91,7 +91,7 @@ function syncMode() {
   if ($('shot')) $('shot').hidden = !dive;                            // 撮影ボタンは、生き物がいる海だけ（zukan.js が外す）
   $('panel').classList.toggle('dive', dive);
   $('hint').textContent = dive
-    ? '移動: W A S D（毎秒10m） · 上昇 E/Space · 下降 Q/C · ホイールで深さを大きく変える · L でライト · P で撮影 · O で画像保存 · ドラッグで見回す'
+    ? '移動: W A S D（毎秒10m） · 下降 Q/C · 上昇 E/Space · ホイールで深さを大きく変える · L でライト · P で撮影 · O で画像保存 · ドラッグで見回す'
     : 'ドラッグで回転 · ホイールで拡大 · 右ドラッグで移動 · ルーラーをクリックでその深さへ潜航';
   syncGo();
 }

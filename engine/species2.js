@@ -411,13 +411,14 @@ function buildSkipjackSchool(size) {
   }
   // 群れの動き: 群れ全体が曲がるとき、1 枚の板のように回さない。群れの形はゆっくり遅れて向きを変え、1 匹ずつは前の魚から順に向きを変える
   const V = new THREE.Vector3(), wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
-  let lastT = null, schoolYaw = 0, wave = null, nextWave = 10 + rnd() * 20;
+  let lastT = null, schoolYaw = 0, spread = 0, wave = null, nextWave = 10 + rnd() * 20;
   const zMax = Math.max(...fish.map(F => F.off.z)), zMin = Math.min(...fish.map(F => F.off.z));
   function animate(t, speed, ctx) {
     const sc = (ctx && ctx.scare) || 0, fwd = size * 2.5;               // 群れの中を前へ進む速さ（群れ全体の動きは外で決まる）
-    const Hg = g.rotation.y, dt = lastT == null ? 0 : Math.min(0.2, Math.max(0, t - lastT)); lastT = t;
-    if (dt === 0) { schoolYaw = Hg; fish.forEach(F => { F.yaw = Hg; }); }
-    schoolYaw += wrap(Hg - schoolYaw) * Math.min(1, dt * 0.7);
+    const Hg = g.rotation.y, gap = lastT == null ? Infinity : t - lastT, dt = Math.min(0.2, Math.max(0, gap)); lastT = t;
+    if (!(gap >= 0 && gap < 1)) { schoolYaw = Hg; spread = sc; fish.forEach(F => { F.yaw = Hg; }); }   // 初めてか、ほかの群れに使い回されたとき（時刻が飛ぶ）は、今の向きから始める
+    spread += (sc - spread) * Math.min(1, dt * 0.8);                   // 驚いて広がる・もとに戻るのは、数秒かけて（すぐに広げると、魚が飛んだように見える）
+    schoolYaw += Math.max(-0.6 * dt, Math.min(0.6 * dt, wrap(Hg - schoolYaw) * Math.min(1, dt * 0.7)));   // 群れの形が回る速さには上限（広がった群れの端の魚が、速く振り回されないように）
     const fy = schoolYaw - Hg, cf = Math.cos(fy), sf = Math.sin(fy);
     // 向きを変える波: ときどき（驚いたときはすぐ）、群れの前から後ろへ伝わる。波が通ると、体を少し傾けて向きを変え、わき腹が光る
     if (!wave && (t > nextWave || sc > 0.4)) { wave = { t0: t, side: rnd() < 0.5 ? 1 : -1 }; nextWave = t + 15 + rnd() * 25; }
@@ -427,7 +428,7 @@ function buildSkipjackSchool(size) {
       F.tp.rotation.y = 0.26 * Math.sin(tt * 2 * Math.PI * 3.2);              // 尾だけを速く振る
       // 群れの中での位置: ゆっくりさまよう（群れの形は、遅れて向きを変える）
       const ax = size * 0.5, ay = size * 0.25, az = size * 1.2;
-      V.copy(F.off).multiplyScalar(1 + 1.8 * sc).add(Q.set(Math.sin(tt * 0.5) * ax, Math.sin(tt * 0.7) * ay, Math.sin(tt * 0.3) * az));
+      V.copy(F.off).multiplyScalar(1 + 1.8 * spread).add(Q.set(Math.sin(tt * 0.5) * ax, Math.sin(tt * 0.7) * ay, Math.sin(tt * 0.3) * az));
       F.f.position.set(V.x * cf + V.z * sf, V.y, -V.x * sf + V.z * cf);
       // 1 匹ずつの向き: 群れの向きを、前にいる魚ほど早く追う。さまよう動きの向きも少し
       const lead = (F.off.z - zMin) / Math.max(0.01, zMax - zMin);
@@ -438,7 +439,8 @@ function buildSkipjackSchool(size) {
     });
   }
   animate(0);
-  return { group: g, animate };
+  // everyFrame: 毎フレーム動かす（群れの形は向きを遅れて追うので、間引くと、曲がる間に端の魚が行ったり来たりして見える）
+  return { group: g, animate, everyFrame: true };
 }
 
 // ---------- ザトウクジラ（Megaptera novaeangliae） ----------

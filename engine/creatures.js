@@ -770,7 +770,8 @@ function texPixels(t) {
 function farFor(def) {
   if (FAR[def.kind] !== undefined) return FAR[def.kind];
   const b = BUILDERS[def.kind];
-  if (def.glow || !b) return (FAR[def.kind] = null);
+  // 群れは使わない（1 匹の大きさで切り替えると、幅数 m の群れが近くで止まった並びから泳ぐ並びへ急に変わり、魚の位置が飛んで見えるため。遠くでは動きの更新を間引くだけにする）
+  if (def.glow || !b || def.behavior === 'school') return (FAR[def.kind] = null);
   const body = b(sizeOf(def));
   const g = body.group; g.position.set(0, 0, 0); g.rotation.set(0, 0, 0); g.updateMatrixWorld(true);
   const parts = { solid: [], clear: [] }; let opSum = 0, opN = 0;
@@ -1211,7 +1212,7 @@ function update(dt, t, { dive, under, depth, view }) {
     if (beh === 'migrate' && d < nearestWhale.d) { nearestWhale.d = d; nearestWhale.kind = def.kind; const a = Math.atan2(dx, dz) - Math.atan2(fwd.x, fwd.z); nearestWhale.pan = Math.sin(a); }
     // 体は近くの個体にだけ（遠ざかったら返す）
     const R = Math.max(45, size * 6);
-    if (!c.body) { if (d > R || !(c.body = takeBody(def))) return; scene.add(c.body.group); if (beh === 'crawl') c.trail = makeTrail(c); }
+    if (!c.body) { if (d > R || !(c.body = takeBody(def))) return; scene.add(c.body.group); c.fresh = true; if (beh === 'crawl') c.trail = makeTrail(c); }
     else if (d > R * 1.25) { release(c); return; }
     shown++;
     if (def.kind === 'amphipod') preyNow.push(c);
@@ -1276,7 +1277,7 @@ function update(dt, t, { dive, under, depth, view }) {
       far.n++;
     } else {
       g.visible = true;
-      if ((frameNo + c.slot) % every === 0) c.body.animate(t + c.seed, sp, c);
+      if (c.fresh || c.body.everyFrame || (frameNo + c.slot) % every === 0) { c.body.animate(t + c.seed, sp, c); c.fresh = false; }   // 体を受け取った最初のフレームは必ず動かす（前に使っていた生き物の姿勢が一瞬見えないように）
     }
     // 出会い: 画面の正面近くに、ある程度の大きさで見えたとき（体の大きさの 40 倍の距離まで）。
     // ライトを消しているときは、自分で光る生き物（glow）だけが見える

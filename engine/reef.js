@@ -448,10 +448,10 @@ const GEO = {
   sponge: (() => {
     const parts = [], tubes = [[0, 0, 0.55, 0.075, 0], [0.11, 0.05, 0.42, 0.06, 0.18], [-0.09, 0.07, 0.36, 0.055, -0.22], [0.04, -0.11, 0.3, 0.05, 0.12], [-0.06, -0.08, 0.24, 0.045, -0.1]];
     tubes.forEach(([x, z, L, r, lean]) => {
-      const out = new THREE.CylinderGeometry(r, r * 0.8, L, 14, 4, true).translate(0, L / 2, 0), inn = new THREE.CylinderGeometry(r * 0.82, r * 0.6, L * 0.92, 14, 1, true).translate(0, L * 0.54, 0);
+      const out = new THREE.CylinderGeometry(r, r * 0.8, L, 10, 3, true).translate(0, L / 2, 0), inn = new THREE.CylinderGeometry(r * 0.82, r * 0.6, L * 0.92, 10, 1, true).translate(0, L * 0.54, 0);
       const op = out.attributes.position; for (let i = 0; i < op.count; i++) { const a = Math.atan2(op.getZ(i), op.getX(i)), y = op.getY(i), k = 1 + 0.06 * Math.sin(a * 5 + y * 20) + 0.05 * Math.sin(y * 31); op.setX(i, op.getX(i) * k); op.setZ(i, op.getZ(i) * k); }   // でこぼこした筒
       out.computeVertexNormals(); inn.scale(-1, 1, 1);                 // 内側の面を内向きに
-      const rim = new THREE.TorusGeometry(r * 0.91, r * 0.12, 6, 16).rotateX(Math.PI / 2).translate(0, L, 0);
+      const rim = new THREE.TorusGeometry(r * 0.91, r * 0.12, 4, 10).rotateX(Math.PI / 2).translate(0, L, 0);
       [out, inn, rim].forEach(g => { g.rotateZ(lean).rotateX(lean * 0.6).translate(x, 0, z); });
       parts.push(paint(out, (px, y) => { const k = 0.75 + 0.35 * Math.min(1, y / L); return [k, k, k]; }), paint(inn, () => [0.18, 0.15, 0.17]), paint(rim, () => [1.05, 1.05, 1.05]));
     });
@@ -466,7 +466,7 @@ const GEO = {
       parts.push(paint(c, () => [1.05, 1.0, 1.02]));                     // 幹は白っぽい（半透明に見えるよう、明るめ）
       const tip = base.clone().addScaledVector(dir, len);
       if (lvl >= 3) {                                                  // 枝先のポリプのかたまり
-        for (let k = 0; k < 12; k++) { const o = new THREE.Vector3(rnd() - 0.5, rnd() * 0.7, rnd() - 0.5).multiplyScalar(0.06); const s = new THREE.IcosahedronGeometry(0.012 + rnd() * 0.012, 0).translate(tip.x + o.x, tip.y + o.y, tip.z + o.z); const w = 0.85 + rnd() * 0.3; parts.push(paint(s, () => [w, w, w])); }   // 小さなポリプの束
+        for (let k = 0; k < 6; k++) { const o = new THREE.Vector3(rnd() - 0.5, rnd() * 0.7, rnd() - 0.5).multiplyScalar(0.055); const s = ROUNDN(new THREE.IcosahedronGeometry(0.016 + rnd() * 0.014, 0)).translate(tip.x + o.x, tip.y + o.y, tip.z + o.z); const w = 0.85 + rnd() * 0.3; parts.push(paint(s, () => [w, w, w])); }   // 小さなポリプの束（陰影は丸く、面は少ないまま）
         return;
       }
       for (let k = 0; k < (lvl ? 2 : 3); k++) { const ax = new THREE.Vector3(rnd() - 0.5, 0, rnd() - 0.5).normalize(), d2 = dir.clone().applyAxisAngle(ax, 0.45 + rnd() * 0.4).lerp(UPv, 0.15).normalize(); branch(tip, d2, len * (0.6 + rnd() * 0.2), rad * 0.65, lvl + 1); }
@@ -522,7 +522,9 @@ const BOTTOM = {
   whip: { max: 200, sway: 1.4, mat: { roughness: 0.6 } },
   rubble: { max: 500, sway: 0, mat: { roughness: 0.9 }, plain: true }   // plain: 図鑑に載せない（生き物ではない）
 };
-Object.entries(BOTTOM).forEach(([k, b]) => { b.mesh = instanced(GEO[k], swayMat(b.mat, 2, [b.sway]), b.max); b.n = 0; });
+Object.entries(BOTTOM).forEach(([k, b]) => { b.mesh = instanced(GEO[k], swayMat(b.mat, 2, [b.sway]), b.max); b.n = 0;
+  if (!['anemone', 'fan', 'leather'].includes(k)) b.mesh.castShadow = false;   // 小さなものは影を落とさない（ほとんど見えないのに、影を描く手間がかかる）
+});
 const ANEMONE_TINT = [[1, 1, 1], [1.35, 0.65, 0.75], [0.75, 0.9, 1.35], [0.95, 1.2, 0.9], [1.2, 1.0, 0.7]];   // イソギンチャク畑の色（紫・赤・青・緑・黄みがかった株）
 const FAN_COLS = [[0.85, 0.2, 0.2], [0.95, 0.5, 0.15], [0.6, 0.25, 0.65], [0.95, 0.75, 0.2]];
 const SPONGE_COLS = [[0.62, 0.3, 0.68], [0.95, 0.5, 0.18], [0.95, 0.82, 0.25], [0.42, 0.38, 0.85], [0.95, 0.5, 0.62], [0.55, 0.5, 0.45]];   // 紫・橙・黄・青紫・桃・灰褐色

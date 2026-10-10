@@ -351,7 +351,8 @@ function placeTrees(cx, cz) {
   [broad, broadFar, palms, shadows].forEach(m => { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; });
 }
 function updateTrees(on) {
-  const cam = T.camera.position, show = on && TREE_R > 0 && veg && T.land.at && cam.y < 1.5;
+  // 水中に潜っているときは描かない（木は水中から見えない。描くと、島の 2 万本近い木と足元の影の形の計算だけが毎回かかる）
+  const cam = T.camera.position, show = on && TREE_R > 0 && veg && T.land.at && cam.y < 1.5 && !(T.terrainMat.uniforms.uDive.value > 0.5);
   broad.visible = broadFar.visible = palms.visible = shadows.visible = !!show;
   if (!show) return;
   if (!treeAt || Math.hypot(cam.x - treeAt[0], cam.z - treeAt[1]) > Math.min(TREE_NEAR * 0.5, TREE_R * 0.25)) placeTrees(cam.x, cam.z);   // 近く用の範囲がずれないよう、こまめに並べ直す

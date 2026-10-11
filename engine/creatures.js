@@ -16,6 +16,8 @@
 //             省略時は住みかの近くを泳ぐ
 //   roam      住みかから離れてよい距離 (m)。大きいほど、大きな弧を描いて遠くまで泳ぐ（省略時は体の大きさで決まる。外洋の群れなどに）
 //   agility   向きの変えやすさ（1 が既定。小さいほど、ゆるやかに曲がる）
+//   coast     [km, 沖での割合]: 浅い海（水深 60m より浅い所）から km 以内にだけ、density のとおりにすむ。それより沖では density × 割合
+//             （ウミガメなど、サンゴ礁や沿岸の生き物に）
 (() => {
 const T = window.__TRENCH, S = window.__DIVE, SEA = window.SEA, UI = window.__UI;
 const { renderer, camera } = T;
@@ -873,12 +875,24 @@ const count = (lam, r) => Math.floor(lam) + (r() < lam % 1 ? 1 : 0);
 function newRec(def, x, z, depth, r) {
   return { def, x, z, depth, hx: x, hz: z, hd: depth, heading: r() * Math.PI * 2, seed: r() * 100, slot: r() * 6 | 0, body: null };
 }
+// 沿岸の生き物の割合: 区画の中心と、まわり（半径 km）の 8 か所のどこかが浅い海（60m より浅い）なら 1、そうでなければ沖での割合
+const COAST_C = new Map();
+function coastK(ix, iz, [km, off]) {
+  const key = ix + ',' + iz + ',' + km; let near = COAST_C.get(key);
+  if (near === undefined) {
+    const cx = (ix + 0.5) * CELL, cz = (iz + 0.5) * CELL, R = km * 1000;
+    near = floorAt(cx, cz) < 60;
+    for (let k = 0; k < 8 && !near; k++) near = floorAt(cx + Math.cos(k * Math.PI / 4) * R, cz + Math.sin(k * Math.PI / 4) * R) < 60;
+    if (COAST_C.size > 20000) COAST_C.clear(); COAST_C.set(key, near);
+  }
+  return near ? 1 : off;
+}
 function midCell(ix, iy, iz) {                                       // 水中の区画（100m 立方）
   const recs = [], top = iy * CELL, bot = top + CELL;
   ALL.forEach(def => {
     if (habitat(def) !== 'mid' || def.behavior === 'migrate') return;   // 回遊する生き物は区画に住まない
     const a = Math.max(top, def.from), b = Math.min(bot, def.to); if (b <= a) return;
-    const r = rng(hash(ix, iy, iz, ALL_IX.get(def), 11)), n = count((def.density == null ? 1 : def.density) * (b - a) / CELL, r);
+    const r = rng(hash(ix, iy, iz, ALL_IX.get(def), 11)), n = count((def.density == null ? 1 : def.density) * (b - a) / CELL * (def.coast ? coastK(ix, iz, def.coast) : 1), r);
     for (let k = 0; k < n; k++) {
       const x = (ix + r()) * CELL, z = (iz + r()) * CELL, d = a + r() * (b - a);
       if (d > floorAt(x, z) - 1 - sizeOf(def)) continue;              // 岩の中には置かない

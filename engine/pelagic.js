@@ -275,7 +275,7 @@ function baitFrame(dt, t, px, pz, camD, floorHere, fwx, fwz) {
   }
   const P = B.ball; P.t += dt;
   const end = Math.max(0, P.t - P.life);                               // 終わり: キハダが去り、群れがほどける
-  if (end > 7 || Math.hypot(P.x - px, P.z - pz) > 140) { B.ball = null; B.next = 100 + Math.random() * 60; done(B.far, 0); done(B.near, 0); done(B.hunt, 0); if (B.mBody) B.mBody.group.visible = false; return; }
+  if (end > 7 || Math.hypot(P.x - px, P.z - pz) > 140) { B.ball = null; B.next = 60 + Math.random() * 60; done(B.far, 0); done(B.near, 0); done(B.hunt, 0); if (B.mBody) B.mBody.group.visible = false; return; }
   P.d += (2.5 - P.d) * Math.min(1, dt * 0.012);                        // 追われて、だんだん海面へ
   P.x += Math.sin(t * 0.05) * 0.15 * dt; P.z += Math.cos(t * 0.04) * 0.15 * dt;
   const spread = 1 + end * end * 0.6;

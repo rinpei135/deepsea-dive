@@ -1,10 +1,9 @@
 // サンゴ礁の生き物: 礁の魚の群れと、イソギンチャク・シャコガイ・ウニ・ナマコ・ウミウチワ・ソフトコーラル・海草。
 // 近景の世界（creatures.js）の中に置く。置き場所はサンゴと同じく 3m 四方の区画ごとの乱数で決まり、いつ来ても同じ所にいる。
 // 魚は、すみかのサンゴのまわりを泳ぎ回り、潜水艇が近づくと逃げる（デバスズメダイは枝サンゴの中へ隠れる）。
-// 公開前（creatures.js の PREVIEW のときだけ表示）
 (() => {
 const L = window.__LIFE, A = L && L.reefApi, T = window.__TRENCH;
-if (!A || !A.PREVIEW || !T.coralCellJS) return;
+if (!A || !T.coralCellJS) return;
 const { REEF, scene, withCaustics, fadeByDistance, BED_R, floorAt, seabedY } = A;
 const CELL = T.CELL, h = (cx, cz, k) => T.hashJS(cx, cz, k);          // 区画の乱数（0〜1）
 const RANGE = BED_R - 6;                                               // 置く範囲（潜水艇から、m）
@@ -537,7 +536,7 @@ const schools = new Map();
 const SPOTS = [];                                                     // 海底の生き物の場所（図鑑の出会い用）                                             // 魚の群れ（すみかの区画ごと）。範囲に入っている間は同じ群れが泳ぎ続ける
 const anemones = [];
 let origin = [0, 0];
-const POINTS = () => ((L && L.sites) || []).filter(s => s.fish);   // ダイブポイント（creatures.js が公開前のものを選び、位置 x, z (m) を入れた見どころ）
+const POINTS = () => ((L && L.sites) || []).filter(s => s.fish);   // ダイブポイント（creatures.js が表示するものを選び、位置 x, z (m) を入れた見どころ）
 const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), SC = new THREE.Vector3(), C = new THREE.Color(), UP = new THREE.Vector3(0, 1, 0);
 // 礁の外側の深い斜面（メソフォティック。サンゴはまばらでも魚はいる）の下限 (m)。真下の海底がこれより浅いと、サンゴ礁の生き物を置く
 const DEEP_MAX = 95;
@@ -1019,7 +1018,7 @@ function subject(fwd, px, pz, depth) {
   BIG.forEach(b => b.on && check(b.def, b.on.x, b.on.d, b.on.z, b.len));
   return best && { def: best, score };
 }
-// 「この深さで出会える生き物」（ui.js の左の欄）に、いまいる場所の浅い海の生き物を出す（公開前の表示のときだけ）。
+// 「この深さで出会える生き物」（ui.js の左の欄）に、いまいる場所の浅い海の生き物を出す。
 // ダイブポイントの近くはそこに群れる魚とまわりの生き物、サンゴ礁の上は代表的な礁の魚。外洋の生き物は pelagic.js が nearbyExtra に足す
 const nearbyExtra = [];
 function nearby(px, pz, depth, floorD) {

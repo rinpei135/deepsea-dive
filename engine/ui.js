@@ -246,7 +246,7 @@ function renderPanel(depth, floorD) {
   if (S.mode === 'dive') rows.push(['向き', heading(S.yaw)]);
   $('gauges').innerHTML = rows.map(r => `<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join('');
   const z = zoneOf(d), atCD = Math.hypot(S.x, S.z) < 3 && d >= floorD - 40;
-  const local = window.__REEF && window.__REEF.nearby ? window.__REEF.nearby(S.x * 1000, S.z * 1000, d, floorD) : [];   // いまいる場所の浅い海の生き物（公開前の表示のときだけ）
+  const local = window.__REEF && window.__REEF.nearby ? window.__REEF.nearby(S.x * 1000, S.z * 1000, d, floorD) : [];   // いまいる場所の浅い海の生き物
   const pv = window.__LIFE && window.__LIFE.reefApi && window.__LIFE.reefApi.PREVIEW;   // 公開前の生き物は、プレビュー表示のときだけ
   const here = O.life.filter(l => (l.status !== 'preview' || pv) && d >= l.from && d <= l.to).concat(local).filter((l, i, a) => a.findIndex(q => q.name === l.name) === i);
   const key = z.name + here.map(l => l.name).join() + atCD;

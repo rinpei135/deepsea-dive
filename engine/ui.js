@@ -170,6 +170,12 @@ $('qual').onclick = () => {
 };
 applyQuality();
 $('exag').onclick = e => {
+  if (state.overEx != null) {                                         // 潜航中（実際の縦横比で描いている）: 俯瞰に戻ったときの強調だけを変える
+    state.overEx = EXS[(EXS.indexOf(state.overEx) + 1) % EXS.length];
+    e.currentTarget.textContent = `高さ ×${state.overEx}`;
+    toast(`潜航中は、実際の縦横比（高さ ×1）で表示しています。俯瞰に戻ると、高さ ×${state.overEx} で表示します。`);
+    return;
+  }
   const ex = EXS[(EXS.indexOf(state.ex) + 1) % EXS.length];
   T.setExaggeration(ex);
   e.currentTarget.textContent = `高さ ×${ex}`;

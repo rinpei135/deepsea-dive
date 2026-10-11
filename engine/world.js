@@ -108,7 +108,7 @@ scene.background = new THREE.Color(0x06121c);
 scene.fog = new THREE.FogExp2(0x06121c, 0);
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.002, 5000);
 
-const state = { ex: 4, chunksReady: false };   // chunksReady: 地形の区画を作り終えたか（作る前の高さの強調は、区画に写さない）
+const state = { ex: 4, chunksReady: false, overEx: null };   // chunksReady: 地形の区画を作り終えたか（作る前の高さの強調は、区画に写さない）。overEx: 潜航中に覚えておく、俯瞰での高さの強調（海の中は ×1 で描く）
 const geo = new THREE.PlaneGeometry(1, 1, NX - 1, NZ - 1);
 const pos = geo.attributes.position;
 const elevAttr = new Float32Array(NX * NZ);

@@ -42,6 +42,7 @@ function setMode(m, then = null) {
     S.intro = { t: 0, from: camera.position.clone(), fromQ: camera.quaternion.clone(), toQ: to, then };
   } else if (S.mode === 'dive') {
     S.intro = null; S.goal = null; S.dir = 0;
+    if (state.overEx != null) { T.setExaggeration(state.overEx); state.overEx = null; }   // 俯瞰に戻ったら、選んでいた高さの強調に戻す
     camera.position.copy(saved.pos); controls.target.copy(saved.tgt);
   }
   S.mode = m;
@@ -208,6 +209,9 @@ function frame(now) {
   const wet = !dive ? false : d > SPLASH_IN ? true : d < -SPLASH_OUT ? false : wasUnder;
   if (dive && wet !== wasUnder) {
     if (wet) {
+      // 海の中は実際の縦横比で描く（近くの海底・生き物・潜水艇の深さは実際の m なので、遠くの地形だけ強調すると、近くの海底の縁に段ができ、
+      // 上下に動くと遠くの海底だけが強調の倍率の速さで動いてしまう）。入水は浅い所なので、切り替えても見た目は変わらない
+      if (state.ex !== 1) { state.overEx = state.ex; T.setExaggeration(1); }
       UI.splash(); UI.toast('海中に入りました'); window.__AUDIO?.splash();
       SEA.splashBubbles(camera.position);
       if (!entered) firstPingAt = t + 1.5;

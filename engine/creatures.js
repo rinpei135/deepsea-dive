@@ -1220,7 +1220,7 @@ function update(dt, t, { dive, under, depth, view }) {
   const lampOn = depth > 150 && S.lamp !== false;
   syncCells(px, pz, depth, floorHere);
   updateBed(px, pz, depth, floorHere - depth < 120);
-  if (REEF.frame) REEF.frame(dt, t, px, pz, depth, bed.visible && (floorHere < 45 || nearPoint(px, pz)));   // サンゴ礁の生き物（reef.js）
+  if (REEF.frame) REEF.frame(dt, t, px, pz, depth, bed.visible && (floorHere < 95 || nearPoint(px, pz)));   // サンゴ礁の生き物（reef.js。礁の外側の深い斜面 95m まで）
   camera.getWorldDirection(fwd);
   shown = 0;
   Object.values(FAR).forEach(f => { if (f) f.n = 0; });                // まとめて描く遠くの個体を、毎フレーム数え直す

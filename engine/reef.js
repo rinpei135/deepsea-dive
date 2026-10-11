@@ -200,7 +200,7 @@ const FISH = [
     geo: { hgt: 0.46, mx: 0.55, snout: 0.8, tail: { len: 0.3, fork: 0.75, lobe: 0.3 }, dorsal: [0.3, 0.78, 0.22], anal: [0.25, 0.5, 0.2], eye: [0.75, 0.85, 0.85],
       pat: (u, v) => mixc([0.55, 0.95, 0.85], [0.35, 0.8, 0.95], (v + 1) / 2 + 0.2 * Math.sin(u * 30)),
       fin: (p, s) => mixc([0.5, 0.9, 0.85], [0.7, 0.95, 1.0], s) } },
-  { kind: 'anthias', name: 'キンギョハナダイ', len: 0.1, n: [14, 26], R: 2.6, up: [0.8, 2.6], spd: 0.3, home: 'coral', w: 2, curious: 0.5,
+  { kind: 'anthias', name: 'キンギョハナダイ', len: 0.1, n: [14, 26], R: 2.6, up: [0.8, 2.6], spd: 0.3, home: 'coral', w: 2, curious: 0.5, deep: 3,
     geo: { hgt: 0.36, mx: 0.5, snout: 0.9, tail: { len: 0.32, fork: 0.85, lobe: 0.9 }, dorsal: [0.25, 0.8, 0.28, 1.6], anal: [0.25, 0.45, 0.3], eye: [0.95, 0.6, 0.3],
       pat: (u, v) => mixc(mixc([1.0, 0.48, 0.2], [1.0, 0.7, 0.55], (v + 1) / 2 * 0.5), [0.75, 0.35, 0.85], band(v, -0.1, 0.12) * band(u, 0.8, 0.12) * 1.5),   // 目の下から胸へ、紫の線
       fin: (p, s) => p === 'tail' ? mixc([1.0, 0.5, 0.25], [1.0, 0.85, 0.3], s) : mixc([1.0, 0.55, 0.3], [0.95, 0.4, 0.6], s) } },
@@ -224,7 +224,7 @@ const FISH = [
         return v > 0.2 && u < 0.45 ? [1.0, 0.82, 0.15] : chev ? [0.45, 0.45, 0.48] : [0.97, 0.97, 0.94];
       },
       fin: (p, s) => p === 'dorsal' && s > 0.6 ? K : p === 'tail' ? [1.0, 0.82, 0.2] : p === 'filament' ? [0.95, 0.85, 0.5] : [1.0, 0.85, 0.25] } },
-  { kind: 'zanclus', name: 'ツノダシ', len: 0.18, n: [2, 3], R: 6, up: [0.5, 2.0], spd: 0.35, home: 'coral', w: 0.8, curious: 0.7,
+  { kind: 'zanclus', name: 'ツノダシ', len: 0.18, n: [2, 3], R: 6, up: [0.5, 2.0], spd: 0.35, home: 'coral', w: 0.8, curious: 0.7, deep: 0.8,
     geo: { hgt: 0.85, mx: 0.55, snout: 2.4, top: 0.0, tail: { len: 0.2, fork: 0.15 }, dorsal: [0.25, 0.66, 0.35, 2.6], anal: [0.2, 0.55, 0.42, 1.6], filament: [0.6, 0.85], eye: [0.95, 0.85, 0.3],
       pat: (u, v) => {
         if (u > 0.92 && v < 0.4) return [1.0, 0.6, 0.2];                                     // 口先の橙
@@ -247,7 +247,7 @@ const FISH = [
       pat: (u, v) => { const w = 0.12 + 0.3 * (1 - u); return Math.abs(v) < w ? K : v > 0 ? mixc([0.85, 0.92, 1.0], [0.2, 0.55, 1.0], 1 - u) : [0.95, 0.96, 0.97]; },
       fin: (p, s) => p === 'tail' ? (s > 0.3 && s < 0.7 ? K : [0.2, 0.55, 1.0]) : [0.3, 0.6, 1.0] } },
   // ヨスジフエダイ: 黄色い体に 4 本の青い線。根のまわりに大きな群れで、ゆったり浮かぶ
-  { kind: 'kasmira', name: 'ヨスジフエダイ', len: 0.25, n: [10, 22], R: 3, up: [1.0, 3.0], spd: 0.25, home: 'coral', w: 0.9, school: true,
+  { kind: 'kasmira', name: 'ヨスジフエダイ', len: 0.25, n: [10, 22], R: 3, up: [1.0, 3.0], spd: 0.25, home: 'coral', w: 0.9, school: true, deep: 2,
     geo: { hgt: 0.36, mx: 0.45, snout: 1.1, top: 0.25, tail: { len: 0.26, fork: 0.45 }, dorsal: [0.2, 0.7, 0.2], anal: [0.2, 0.42, 0.2], eye: [0.9, 0.8, 0.4],
       pat: (u, v) => { if (v < -0.55) return [0.97, 0.95, 0.85]; const ln = [0.55, 0.15, -0.2, -0.45].some(c => Math.abs(v - c - 0.05 * Math.sin(u * 4)) < 0.045); return ln ? [0.35, 0.7, 1.0] : [1.0, 0.8, 0.12]; },
       fin: () => [1.0, 0.85, 0.2] } },
@@ -539,9 +539,11 @@ const anemones = [];
 let origin = [0, 0];
 const POINTS = () => ((L && L.sites) || []).filter(s => s.fish);   // ダイブポイント（creatures.js が公開前のものを選び、位置 x, z (m) を入れた見どころ）
 const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), SC = new THREE.Vector3(), C = new THREE.Color(), UP = new THREE.Vector3(0, 1, 0);
+// 礁の外側の深い斜面（メソフォティック。サンゴはまばらでも魚はいる）の下限 (m)。真下の海底がこれより浅いと、サンゴ礁の生き物を置く
+const DEEP_MAX = 95;
 function rebuild(ox, oz, floorHere) {
   origin = [ox, oz];
-  const show = floorHere < 45;
+  const show = floorHere < DEEP_MAX;
   Object.values(BOTTOM).forEach(b => { b.n = 0; });
   anemones.length = 0; SPOTS.length = 0;
   const seen = new Set();
@@ -550,7 +552,16 @@ function rebuild(ox, oz, floorHere) {
     for (let j = -NR; j <= NR; j++) for (let i = -NR; i <= NR; i++) {
       const cx = c0x + i, cz = c0z + j, wx = cx * CELL, wz = cz * CELL;
       if (Math.hypot(wx - ox, wz - oz) > RANGE) continue;
-      const d = floorAt(wx, wz); if (d > 40 || d < 0.6) continue;
+      const d = floorAt(wx, wz); if (d > DEEP_MAX || d < 0.6) continue;
+      if (d > 40) {                                                    // 礁の外側の深い斜面（40〜95m）: サンゴはまばらでも、深い所にもすむ魚がいる（浅いほど多い）
+        if (h(cx, cz, 304) < 0.03 * (1 - 0.75 * (d - 40) / (DEEP_MAX - 40))) {   // 浅いサンゴ礁の半分ほど。深いほど減る
+          const pool = FISH.filter(f => f.deep); let r = h(cx, cz, 305) * pool.reduce((a, f) => a + f.deep, 0), f = pool[0];
+          for (const q of pool) { r -= q.deep; if (r <= 0) { f = q; break; } }
+          const key = 'd' + cx + ',' + cz; seen.add(key);
+          if (!schools.has(key)) schools.set(key, newSchool(f, wx, wz, d, cx, cz));
+        }
+        continue;
+      }
       const rm = T.reefMaskJS(wx, wz), onReef = Math.min(1, Math.max(0, (rm - 0.48) / 0.14));
       // 魚の群れ: サンゴのある区画をすみかにする
       const coral = T.coralCellJS(cx, cz, d, rm);
@@ -931,7 +942,7 @@ const FISH_INFO = {
 const REEF_SPECIES = [];
 FISH.forEach(f => {
   const [sci, name, note] = FISH_INFO[f.kind];
-  f.def = D(f.kind, name, sci, 1, 40, f.where ? f.where : f.home === 'anemone' ? '浅いサンゴ礁の、イソギンチャクのまわり' : f.home === 'station' ? '浅いサンゴ礁の、大きなサンゴのそば（掃除場）' : f.home === 'open' ? '礁の外側（水深 8〜30m）の中層' : '浅いサンゴ礁（水深 40m より浅い所）', note, f.bodies ? thumbBody('reefManta', 4, true) : thumbMesh(() => f.ray ? mantaGeo() : fishGeo(f.geo, 0), 0xffffff, f.ray ? 0.4 : 1.07, f.ray ? 1 : 0));
+  f.def = D(f.kind, name, sci, 1, f.deep ? DEEP_MAX : 40, f.where ? f.where : f.deep ? 'サンゴ礁と、礁の外側の深い斜面（水深 90m ほどまで）' : f.home === 'anemone' ? '浅いサンゴ礁の、イソギンチャクのまわり' : f.home === 'station' ? '浅いサンゴ礁の、大きなサンゴのそば（掃除場）' : f.home === 'open' ? '礁の外側（水深 8〜30m）の中層' : '浅いサンゴ礁（水深 40m より浅い所）', note, f.bodies ? thumbBody('reefManta', 4, true) : thumbMesh(() => f.ray ? mantaGeo() : fishGeo(f.geo, 0), 0xffffff, f.ray ? 0.4 : 1.07, f.ray ? 1 : 0));
   REEF_SPECIES.push(f.def);
 });
 const BOTTOM_INFO = {
@@ -1015,13 +1026,14 @@ function nearby(px, pz, depth, floorD) {
   // 説明は図鑑の文の、はじめの 1〜2 文（1 文目が短いときは 2 文目まで）
   const brief = note => { const ss = note.split('。').filter(Boolean).map(t => t + '。'); return ss[0].length < 30 && ss[1] ? ss[0] + ss[1] : ss[0]; };
   const out = [], add = def => { if (def && def.name && def.note && !out.some(o => o.name === def.name)) out.push({ name: def.name, note: brief(def.note) }); };
-  if (depth > 45) return out;
+  if (depth > DEEP_MAX) return out;
   POINTS().forEach(st => {
     if (Math.hypot(st.x - px, st.z - pz) > 400) return;
     st.fish.forEach(r => { const f = FISH.find(q => q.kind === r.kind); add(f && f.def); });
     (st.guests || []).forEach(gs => add(((window.SEA && window.SEA.creatures) || []).find(d => d.kind === gs.kind)));
   });
   if (floorD < 45) ['anthias', 'hepatus', 'chromis', 'parrot', 'clown'].forEach(k => add(FISH.find(f => f.kind === k).def));
+  else if (floorD < DEEP_MAX) FISH.filter(f => f.deep).forEach(f => add(f.def));   // 礁の外側の深い斜面
   nearbyExtra.forEach(fn => fn(px, pz, depth, floorD).forEach(add));
   return out.slice(0, 6);
 }

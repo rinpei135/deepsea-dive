@@ -207,7 +207,48 @@ function tunaFrame(dt, t, px, pz, camD, floorHere, show) {
 const scadO = { hgt: 0.21, wid: 0.11, mx: 0.5, snout: 1.2, top: 0.06, ped: 0.1, tail: { len: 0.22, fork: 0.85, lobe: 0.45 }, dorsal: [0.3, 0.62, 0.15], anal: [0.25, 0.45, 0.1], finlets: 1, eye: [0.86, 0.78, 0.7],
   pat: (u, v) => (u > 0.77 && u < 0.8 && v > 0.15 && v < 0.4) ? [0.1, 0.12, 0.14] : K.mixc([0.88, 0.9, 0.92], [0.16, 0.36, 0.55], Math.max(0, v + 0.1) * 1.4),   // 背は青緑、横と腹は銀白色。えらぶたに小さな黒い点
   fin: (p, s) => p === 'tail' ? K.mixc([0.7, 0.68, 0.55], [0.5, 0.45, 0.32], s) : [0.6, 0.65, 0.7] };
-const BAIT_N = S.quality === 'low' ? 320 : 640, BAIT_NEAR = 90, HUNT_N = 8;
+// 群れの数と大きさは画質で決める（本物のベイトボールは数千〜数万匹。魚どうしの間は体 1 つ分ほどで、外からは銀色の壁のように見える）
+const BAIT_Q = { high: [2400, 2.8], mid: [1200, 2.4], low: [500, 1.9] }[S.quality] || [1200, 2.4];
+const BAIT_N = BAIT_Q[0], BAIT_NEAR = 120, HUNT_N = 8;
+// はがれた鱗: 襲われた所に散り、日の光にちらちら光りながら、ゆらゆら沈む
+const SCALE_N = 1500;
+const scales = (() => {
+  const g = new THREE.BufferGeometry(), pos = new Float32Array(SCALE_N * 3), col = new Float32Array(SCALE_N * 3);
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setDrawRange(0, 0);
+  const cv = document.createElement('canvas'); cv.width = cv.height = 32;
+  const x = cv.getContext('2d'), gr = x.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 32, 32);
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.022, map: new THREE.CanvasTexture(cv), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  pts.frustumCulled = false; pts.visible = false; scene.add(pts);
+  return { pts, pos, col, list: [] };
+})();
+function spawnScales(x, z, d, n) {
+  for (let k = 0; k < n; k++) {
+    if (scales.list.length >= SCALE_N) scales.list.shift();
+    scales.list.push({ x: x + (Math.random() - 0.5) * 1.6, z: z + (Math.random() - 0.5) * 1.6, d: d + (Math.random() - 0.5) * 1.2, vs: 0.05 + Math.random() * 0.07, age: 0, life: 25 + Math.random() * 15, ph: Math.random() * 6.3, sp: 2 + Math.random() * 5, fl: 0.4 + Math.random() * 0.8 });
+  }
+}
+function scalesFrame(dt, t, px, pz, camD) {
+  const L2 = scales.list = scales.list.filter(q => (q.age += dt) < q.life);
+  let n = 0;
+  for (const q of L2) {
+    q.d += q.vs * dt; q.x += Math.sin(t * q.fl + q.ph) * 0.04 * dt; q.z += Math.cos(t * q.fl * 0.8 + q.ph) * 0.04 * dt;   // ゆらゆら沈む
+    const e = Math.hypot(q.x - px, q.d - camD, q.z - pz); if (e > 30) continue;
+    const tw = 0.12 + 0.88 * Math.pow(Math.max(0, Math.sin(t * q.sp + q.ph)), 6), fade = Math.min(1, q.age * 2) * Math.min(1, (q.life - q.age) / 4);   // 向きが変わるたびに、ちらっと光る
+    scales.pos[n * 3] = q.x - px; scales.pos[n * 3 + 1] = camD - q.d; scales.pos[n * 3 + 2] = q.z - pz;
+    const b = tw * fade; scales.col[n * 3] = 0.85 * b; scales.col[n * 3 + 1] = 0.92 * b; scales.col[n * 3 + 2] = 1.0 * b; n++;
+  }
+  scales.pts.geometry.setDrawRange(0, n); scales.pts.visible = n > 0;
+  if (n) { scales.pts.geometry.attributes.position.needsUpdate = true; scales.pts.geometry.attributes.color.needsUpdate = true; }
+}
+// 捕食者が群れの真ん中を突き抜けたとき: 群れ全体が一瞬はじけるように広がり（フラッシュ拡散）、襲われた側から銀色のきらめきの波が走る。
+// 何匹か食べられて、鱗が散る
+function attack(P, h, eat) {
+  P.flash = Math.max(P.flash, 0.8);
+  const ax = h.x - P.x, az = h.z - P.z, al = Math.hypot(ax, az) || 1;
+  P.wave = { t0: P.t, x: ax / al, z: az / al, amp: 1 };
+  let k = 0; for (const q of P.fish) { if (k >= eat) break; if (q.alive && Math.random() < 0.02) { q.alive = false; P.alive--; k++; } }
+  spawnScales(P.x, P.z, P.d, 60 + Math.floor(Math.random() * 80));
+}
 const bait = {
   far: K.instanced(K.fishGeo(scadO, 1), K.silverMat, BAIT_N),          // 遠く（6m より先）の魚は、面の少ない形で
   near: K.instanced(K.fishGeo(scadO, 0), K.silverMat, BAIT_NEAR),
@@ -232,9 +273,9 @@ function marlinFrame(P, end, dt, t, px, pz, camD) {
   if (m.dash) {
     const D = m.dash, k = Math.min(1, (P.t - D.t0) / D.dur), e = k * k * (3 - 2 * k);
     m.x = D.ax + (D.bx - D.ax) * e; m.z = D.az + (D.bz - D.az) * e; m.d = D.ad + (D.bd - D.ad) * e;
-    if (k > 0.35 && k < 0.75) {                                        // 群れの中: くちばしを左右に振る
+    if (k > 0.35 && k < 0.75) {                                        // 群れの中: くちばしを左右に振って、小魚を打つ
       slash = 0.45 * Math.sin((k - 0.35) / 0.4 * Math.PI * 3);
-      if (Math.random() < dt * 2) { const q = P.fish.find(q => q.alive && Math.random() < 0.03); if (q) q.alive = false; }
+      if (!D.hit) { D.hit = true; attack(P, m, 10 + Math.floor(Math.random() * 10)); }
     }
     if (k >= 1) { m.th = D.thB; m.dash = null; m.wait = 8 + Math.random() * 8; }
   } else {
@@ -260,18 +301,19 @@ function baitFrame(dt, t, px, pz, camD, floorHere, fwx, fwz) {
     B.next -= dt;
     if (B.next > 0 || camD < 2 || camD > 45 || floorHere < 80) { done(B.far, 0); done(B.near, 0); done(B.hunt, 0); return; }
     // 前方 32〜42m（霧の向こうに、ぼんやり見えはじめる所）に、水深 6〜25m で
-    const a = Math.atan2(fwz, fwx) + (Math.random() - 0.5) * 1.4, r = 32 + Math.random() * 10, R0 = 1.8 + Math.random() * 0.6;   // すき間なく固まった、直径 4m ほどの球
+    const a = Math.atan2(fwz, fwx) + (Math.random() - 0.5) * 1.4, r = 32 + Math.random() * 10, R0 = BAIT_Q[1] + Math.random() * 0.5;   // すき間なく固まった、直径 4〜6m ほどの群れ
     const fish = [];
     for (let i = 0; i < BAIT_N; i++) {
       // 球の中の位置: 中心からの水平の距離 rho・高さ y（球の半径を 1 として）。真ん中は少しあける（いちばん内側の魚も、小さく回りすぎないように）
       const u = Math.cbrt(0.1 + 0.9 * Math.random()), ct = Math.random() * 2 - 1;
-      fish.push({ rho: Math.max(0.28, u * Math.sqrt(1 - ct * ct)), y: u * ct, a: Math.random() * 6.283, w: 0.9 + Math.random() * 0.3, ph: Math.random() * 6.3, s: 0.2 + Math.random() * 0.06, ox: 0, oy: 0, oz: 0, fl: 0, alive: true });
+      fish.push({ rho: Math.max(0.28, u * Math.sqrt(1 - ct * ct)), y: u * ct, a: Math.random() * 6.283, w: 0.9 + Math.random() * 0.3, ph: Math.random() * 6.3, s: 0.2 + Math.random() * 0.06, ox: 0, oy: 0, oz: 0, fl: 0, alive: true, lobe: i % 2 ? 1 : -1 });   // lobe: 群れが 2 つに分かれたとき、どちらに入るか
     }
     const hunters = [];
     for (let j = 0, n = 5 + Math.floor(Math.random() * 4); j < n; j++)
       hunters.push({ th: Math.random() * 6.283, rc: 8 + Math.random() * 5, dd: (Math.random() - 0.5) * 4, wait: 2 + Math.random() * 6, dash: null, s: 1.0 + Math.random() * 0.4, x: 0, z: 0, d: 0, vx: 1, vy: 0, vz: 0 });
     B.ball = { x: px + Math.cos(a) * r, z: pz + Math.sin(a) * r, d: Math.max(6, Math.min(25, camD + (Math.random() - 0.3) * 8)), R: R0, dir: Math.random() < 0.5 ? 1 : -1, t: 0, life: 80 + Math.random() * 40, fish, hunters,
-      marlinAt: Math.random() < 0.4 ? 12 + Math.random() * 20 : Infinity, marlin: null };
+      marlinAt: Math.random() < 0.4 ? 12 + Math.random() * 20 : Infinity, marlin: null,
+      alive: BAIT_N, flash: 0, wave: null, nextWave: 3 + Math.random() * 4, split: null, nextSplit: 15 + Math.random() * 15, ph: [0, 1, 2, 3].map(() => Math.random() * 6.3) };
   }
   const P = B.ball; P.t += dt;
   const end = Math.max(0, P.t - P.life);                               // 終わり: キハダが去り、群れがほどける
@@ -291,8 +333,8 @@ function baitFrame(dt, t, px, pz, camD, floorHere, fwx, fwz) {
       const D = h.dash, k = Math.min(1, (P.t - D.t0) / D.dur), e = k * k * (3 - 2 * k);
       h.x = D.ax + (D.bx - D.ax) * e; h.z = D.az + (D.bz - D.az) * e; h.d = D.ad + (D.bd - D.ad) * e + Math.sin(Math.PI * k) * D.arc;
       if (k >= 1) { h.th = D.thB; h.dash = null; h.wait = 3 + Math.random() * 6; }
-      else if (!D.ate && k > 0.4 && k < 0.6) {                         // 群れの真ん中で、ときどき 1 匹食べる
-        D.ate = true; if (Math.random() < 0.5) { const q = P.fish.find(q => q.alive && Math.random() < 0.05); if (q) q.alive = false; }
+      else if (!D.ate && k > 0.4 && k < 0.6) {                         // 群れの真ん中を突き抜ける
+        D.ate = true; attack(P, h, 5 + Math.floor(Math.random() * 8));
       }
     } else {
       h.th += 3 / h.rc * dt * P.dir; h.wait -= dt;
@@ -307,28 +349,43 @@ function baitFrame(dt, t, px, pz, camD, floorHere, fwx, fwz) {
   }
   done(B.hunt, kh);
   marlinFrame(P, end, dt, t, px, pz, camD);
-  // 小魚: 球の中を渦を巻いて回る。突っ込んでくるキハダの近くでは、通り道から押しのけられて割れ、きらめく
+  // 小魚: 群れの中を渦を巻いて回る。群れの形はたえず変わる（つぶれる・横に伸びる・縁が波打つ・ときどき 2 つに分かれてまた合わさる）。
+  // 突っ込んでくる捕食者の近くでは、通り道から押しのけられて割れ（噴水のように割れて、後ろで閉じる）、きらめく
   const dashing = P.hunters.filter(h => h.dash);
   if (P.marlin && P.marlin.dash) dashing.push(P.marlin);
+  P.flash *= Math.exp(-dt * 2.5);
+  if (!P.wave && P.t > P.nextWave) { const a = Math.random() * 6.283; P.wave = { t0: P.t, x: Math.cos(a), z: Math.sin(a), amp: 0.55 }; P.nextWave = P.t + 5 + Math.random() * 5; }   // 襲われていなくても、ときどき小さな波
+  let wf = null; const W = P.wave; if (W) { wf = 1.25 - (P.t - W.t0) * 2.4; if (wf < -1.5) { P.wave = null; wf = null; } }   // 波の先（群れの半径を 1 として、襲われた側 +1 → 反対側 -1）
+  if (!P.split && P.t > P.nextSplit && end === 0) { P.split = { t0: P.t, hold: 4 + Math.random() * 3, a: Math.random() * 6.283 }; P.nextSplit = P.t + 22 + Math.random() * 15; }
+  let sp = 0; if (P.split) { const u = P.t - P.split.t0, H2 = P.split.hold; sp = u < 3 ? u / 3 : u < 3 + H2 ? 1 : u < 7 + H2 ? 1 - (u - 3 - H2) / 4 : 0; sp = sp * sp * (3 - 2 * sp); if (u > 7 + H2) P.split = null; }
+  const R1 = P.R * spread * Math.cbrt(Math.max(0.2, P.alive / BAIT_N)) * (1 + 0.32 * P.flash) * (1 - 0.2 * sp);   // 食べられて小さくなる。分かれると 1 つずつは小さい
+  const ex = 1 + 0.22 * Math.sin(P.t * 0.11 + P.ph[0]), ey = 1 - 0.22 * Math.sin(P.t * 0.09 + P.ph[1]), ea = P.t * 0.05 + P.ph[2], ce = Math.cos(ea), se = Math.sin(ea);
+  const sa = P.split ? P.split.a : 0, sep = sp * R1 * 1.15;
   let nf = 0, nn = 0;
   for (const q of P.fish) {
     if (!q.alive) continue;
-    const Rb = P.R * spread * (1 + 0.06 * Math.sin(t * 0.7 + q.ph)), rr = q.rho * Rb;
+    const Rb = R1 * (1 + 0.06 * Math.sin(t * 0.7 + q.ph)) * (1 + 0.09 * Math.sin(2 * q.a + P.t * 0.6 + P.ph[3]) * Math.cos(3 * q.y + P.t * 0.4)), rr = q.rho * Rb;   // 縁が波打つ
     q.a += P.dir * q.w * 1.1 / Math.max(0.8, rr) * dt;
-    const x0 = P.x + Math.cos(q.a) * rr, z0 = P.z + Math.sin(q.a) * rr, d0 = P.d - q.y * Rb * 0.75 + 0.12 * Math.sin(t * 0.9 + q.ph);
+    let lx = Math.cos(q.a) * rr, lz = Math.sin(q.a) * rr;
+    const pe = (lx * ce + lz * se) * ex, pp = (-lx * se + lz * ce) / Math.sqrt(ex); lx = pe * ce - pp * se; lz = pe * se + pp * ce;   // 横に伸びる・縮む
+    const ly = q.y * Rb * 0.75 * ey;
+    const cx = P.x + q.lobe * Math.cos(sa) * sep, cz = P.z + q.lobe * Math.sin(sa) * sep;
+    const x0 = cx + lx, z0 = cz + lz, d0 = P.d - ly + 0.12 * Math.sin(t * 0.9 + q.ph);
     let tx = 0, ty = 0, tz = 0, fl = 0;
     for (const h of dashing) {
-      const ex = x0 - h.x, ey = d0 - h.d, ez = z0 - h.z, e = Math.hypot(ex, ey, ez) || 1;
-      if (e < 2.4) { const k = (2.4 - e) / 2.4, push = k * 1.5; tx += ex / e * push; ty += ey / e * push; tz += ez / e * push; fl = Math.max(fl, k); }
+      const ex2 = x0 - h.x, ey2 = d0 - h.d, ez2 = z0 - h.z, e = Math.hypot(ex2, ey2, ez2) || 1;
+      if (e < 2.4) { const k = (2.4 - e) / 2.4, push = k * 1.5; tx += ex2 / e * push; ty += ey2 / e * push; tz += ez2 / e * push; fl = Math.max(fl, k); }
     }
     const grow = tx * tx + ty * ty + tz * tz > q.ox * q.ox + q.oy * q.oy + q.oz * q.oz, kk = Math.min(1, dt * (grow ? 8 : 1.2));   // さっと割れて、ゆっくり戻る
     q.ox += (tx - q.ox) * kk; q.oy += (ty - q.oy) * kk; q.oz += (tz - q.oz) * kk;
     q.fl += (fl - q.fl) * Math.min(1, dt * 5);
     const x = x0 + q.ox, d = d0 + q.oy, z = z0 + q.oz;
+    // きらめきの波: 波の先が通ると、体を傾けて、わき腹が光る
+    let wv = 0; if (wf != null) { const c = (lx * W.x + lz * W.z) / Math.max(0.5, R1); wv = W.amp * Math.exp(-Math.pow((c - wf) / 0.22, 2)); }
     // 向き: 渦の向き（ほどけるときは外へ）。押しのけられた向きにも少し
     const hx = -Math.sin(q.a) * P.dir + q.ox * 0.8 + Math.cos(q.a) * end * 0.5, hz = Math.cos(q.a) * P.dir + q.oz * 0.8 + Math.sin(q.a) * end * 0.5, hy = -q.oy * 0.5 + 0.1 * Math.cos(t * 0.9 + q.ph);
     const e = Math.hypot(x - px, d - camD, z - pz), near = e < 6 && nn < BAIT_NEAR;
-    put(near ? B.near : B.far, near ? nn++ : nf++, x - px, camD - d, z - pz, orient(hx, hy, hz), q.s, 1 + 0.6 * q.fl);
+    put(near ? B.near : B.far, near ? nn++ : nf++, x - px, camD - d, z - pz, orient(hx, hy, hz, wv * 1.25 * q.lobe), q.s, 1 + 0.6 * q.fl + 1.7 * wv);
   }
   done(B.far, nf); done(B.near, nn);
 }
@@ -526,13 +583,14 @@ function frame(dt, t, { dive, under, depth }) {
   CAMD.value = camD;
   const show = dive && camD < 60 && camD > -60;
   airOn = show && !under;
-  if (!show) { ALL.forEach(m => done(m, 0)); if (bait.mBody) bait.mBody.group.visible = false; sharks.bodies.forEach(b => { b.group.visible = false; }); vel.near = null; lastFlots = []; return; }
+  if (!show) { ALL.forEach(m => done(m, 0)); scales.pts.visible = false; if (bait.mBody) bait.mBody.group.visible = false; sharks.bodies.forEach(b => { b.group.visible = false; }); vel.near = null; lastFlots = []; return; }
   const px = S.x * 1000, pz = S.z * 1000, floorHere = floorAt(px, pz);
   T.camera.getWorldDirection(FWD); const fl = Math.hypot(FWD.x, FWD.z) || 1;
   dolphinFrame(dt, t, px, pz, camD, floorHere, true);
   flyingFrame(dt, t, px, pz, camD, floorHere, true, FWD.x / fl, FWD.z / fl);
   tunaFrame(dt, t, px, pz, camD, floorHere, true);
   baitFrame(dt, t, px, pz, camD, floorHere, FWD.x / fl, FWD.z / fl);
+  scalesFrame(dt, t, px, pz, camD);
   lastFlots = flotFrame(dt, t, px, pz, camD, true);
   velellaFrame(t, px, pz, camD);
   checkMeet(dt, px, pz, camD, lastFlots);

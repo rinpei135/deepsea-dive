@@ -108,14 +108,19 @@ function dolphinFrame(dt, t, px, pz, camD, floorHere, show) {
     let d, roll = 0, pitch;
     if (q.jump) {                                                       // ジャンプ: 海面から飛び出し、体の軸のまわりに 2〜3 回転して落ちる
       const tau = t - q.jump.t0, T0 = 2 * q.jump.v / 9.8;
-      if (tau > T0) { q.jump = null; d = 0.2; }
+      if (tau > T0) { q.back = { t0: q.jump.t0 + T0, v: q.jump.v }; q.jump = null; }   // 水に戻る: 飛び込んだ勢いのまま潜る（下で続ける）
       else { d = -(q.jump.v * tau - 4.9 * tau * tau); roll = tau / T0 * Math.PI * 2 * q.jump.turns; }
     }
     if (!q.jump) {
       // 息つぎ: 7〜12 秒ごとに、海面すれすれまで上がる（背中と背びれが海面に出る）
       const p = ((t / q.per + q.ph) % 1 + 1) % 1, pulse = Math.exp(-Math.pow((p - 0.5) / 0.07, 2));
       d = q.base + (-0.15 - q.base) * pulse;
-      if (pulse > 0.95 && Math.random() < dt * 0.6 && P.t > 4) q.jump = { t0: t, v: 5 + Math.random() * 2, turns: Math.random() < 0.6 ? 2 + Math.floor(Math.random() * 2) : 0 };
+      if (q.back) {                                                    // ジャンプのあと: 飛び込んだ勢いで数 m 潜り、1〜2 秒かけて、ふだんの深さへなめらかに戻る
+        const u = t - q.back.t0, dv = Math.max(0, q.back.v * u - 2.5 * u * u), w = Math.min(1, Math.max(0, (u - 0.6) / 1.6));
+        d = dv + (d - dv) * w * w * (3 - 2 * w);
+        if (u > 2.2) q.back = null;
+      }
+      else if (pulse > 0.95 && Math.random() < dt * 0.6 && P.t > 4) q.jump = { t0: t, v: 5 + Math.random() * 2, turns: Math.random() < 0.6 ? 2 + Math.floor(Math.random() * 2) : 0 };
     }
     q.vd = (d - q.d) / Math.max(dt, 1e-3); q.d = d;
     pitch = Math.max(-1.2, Math.min(1.2, -q.vd / 3));

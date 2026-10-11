@@ -266,7 +266,7 @@ function frame(now) {
   u.uFogDen2.value = bedOn ? LF.reefApi.scene.fog.density * 1000 : 0;   // 近くの海底の霧の濃さ（km あたり）
   u.uSink.value.set(S.x, S.z, 0.086, bedOn ? 0.006 : 0);              // 近くの海底の下へ、粗い地形を 6m 沈める
   u.uPingSpeed.value = UI.soundSpeed(Math.max(0, d)) / 1000;          // ソナーの波面は、今いる深さの音速で広がる（km/秒）
-  u.uLampR.value = d > 150 && S.lamp ? 0.045 : 0;                 // ライトの届く距離 (km)。実際の潜水艇のライトは数十 m
+  u.uLampR.value = d > 150 && S.lamp ? 0.065 : 0;                 // ライトの届く距離 (km)。実際の潜水艇のライトは数十 m
   camera.getWorldDirection(u.uCamDir.value);
   // ソナーで浮かぶ地形: 日の光が届く浅い海では目で見える景色を邪魔しないよう薄く、暗い深さでははっきり
   // 日の光で見える浅い所（20m より浅い所）では重ねず、深くなるにつれて少しずつ（霧の上から遠くの島の地形が浮かんで、水平線に一直線の線が見えるので。

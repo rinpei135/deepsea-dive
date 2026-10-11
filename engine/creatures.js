@@ -183,15 +183,15 @@ function updateSparkles(t, px, pz, depth) {
 // いつも置いておき、明るさだけを変える
 // 本物の潜水艇のように、ライトは窓（カメラ）から左右に離して付ける。カメラのすぐ横に光源がないので、
 // 目の前の粒が白く光って視界がつぶれる（後方散乱）ことが減り、少し斜めから照らされて立体感が出る
-const LAMP_RANGE = 35;
+const LAMP_RANGE = 55;                                                 // ライトの届く距離 (m)
 const LAMP_AT = [new THREE.Vector3(-0.8, 0.45, 0), new THREE.Vector3(0.8, 0.45, 0)];  // カメラから見た取り付け位置 (m)
 const lamps = LAMP_AT.map(() => {
-  const l = new THREE.SpotLight(0xe8f4ff, 0, LAMP_RANGE, 0.55, 0.5, 1.6);
+  const l = new THREE.SpotLight(0xe8f4ff, 0, LAMP_RANGE, 0.55, 0.5, 1.3);   // 遠くまで弱まりにくく
   scene.add(l); scene.add(l.target); return l;
 });
 const fill = new THREE.PointLight(0xcfe8ff, 0, 8, 2); scene.add(fill);
 // 光の筋: 水の中の細かい粒に光が当たって、ライトの円すいがうっすら見える
-const BEAM_LEN = 14;
+const BEAM_LEN = 20;
 const beamGeo = new THREE.ConeGeometry(BEAM_LEN * Math.tan(0.42), BEAM_LEN, 32, 1, true).rotateX(-Math.PI / 2).translate(0, 0, BEAM_LEN / 2);
 const beamMat = new THREE.ShaderMaterial({
   uniforms: { uI: { value: 0 }, uColor: { value: new THREE.Color(0xd8ecff) }, uFogDen: { value: 0.05 } },
@@ -1045,7 +1045,7 @@ const wrap = v => ((v % PBOX) + PBOX) % PBOX - PBOX / 2;
 function updatePlankton(dt, px, pz, depth, speed, lampOn) {
   const vis = Math.min(1, Math.max(0, (depth - 200) / 300));
   plank.visible = vis > 0; if (!plank.visible) return;
-  plank.material.opacity = vis * (lampOn ? 0.45 : 1);
+  plank.material.opacity = vis * (lampOn ? 0.08 : 1);                  // ライトを点けていると、弱い生物の光はほとんど見えない（ライトのまわりで点滅して、ちかちかしないように）
   // 光る生き物の多さ: 600m 付近で最も多く（1m³ に約 80）、3,000m より深いと 1m³ に 1 ほどとまれになる（Craig ほか 2015）
   const many = depth < 1500 ? 1 : Math.max(0.03, Math.exp(-(depth - 1500) / 700));
   const p = plank.geometry.attributes.position, col = plank.geometry.attributes.color, stir = Math.min(1, speed / 3) * many;
@@ -1130,7 +1130,11 @@ function litPoints(n, { color, snow = false, additive = true }) {
         vA *= exp(-pow(uFogDen * d, 2.0));
         vec4 mv = viewMatrix * vec4(p, 1.0);
         gl_Position = projectionMatrix * mv;
-        gl_PointSize = uPR * clamp(uBase * aSize / max(-mv.z, 0.05), 1.0, ${snow ? '14.0' : '90.0'});
+        // 大きさは 2 画素より小さくしない（1 画素の粒は、動くたびに画素から画素へ飛び移って、ライトの中でちかちかする）。
+        // 本当は 2 画素より小さい粒は、その分だけ暗くして、明るさの合計をそろえる
+        float ps = uPR * uBase * aSize / max(-mv.z, 0.05);
+        vA *= min(1.0, ps * ps / 4.0);
+        gl_PointSize = clamp(ps, 2.0, uPR * ${snow ? '14.0' : '90.0'});
       }`,
     fragmentShader: `
       uniform vec3 uColor; varying float vA; varying float vL;
@@ -1161,7 +1165,7 @@ function emitSilt(x, y, z, n, spread, power) {                        // x, z: �
 }
 function updateParticles(dt, t, px, pz, depth, lampOn, alt) {
   const deep = depth > 150, amb = deep ? (lampOn ? 0.035 : 0.006) : 0.5 * Math.exp(-depth / 90);
-  [marineSnow, silt].forEach(m => { const u = m.material.uniforms; u.uLampDir.value.copy(fwd); u.uL1.value.copy(lamps[0].position); u.uL2.value.copy(lamps[1].position); u.uLamp.value = lampOn ? 1 : 0; u.uAmb.value = amb; u.uFogDen.value = scene.fog.density; u.uTime.value = t; });
+  [marineSnow, silt].forEach(m => { const u = m.material.uniforms; u.uPR.value = renderer.getPixelRatio(); u.uLampDir.value.copy(fwd); u.uL1.value.copy(lamps[0].position); u.uL2.value.copy(lamps[1].position); u.uLamp.value = lampOn ? 1 : 0; u.uAmb.value = amb; u.uFogDen.value = scene.fog.density; u.uTime.value = t; });
   // 水中の粒: 深い所はライトに浮かぶマリンスノー。日の光が届く浅い所でも、小さな浮遊物が日に照らされて淡く光って見える
   marineSnow.visible = depth > 0.5;
   if (!deep) marineSnow.material.uniforms.uAmb.value = amb * (depth < 20 ? 0.45 + 0.55 * depth / 20 : 1);
@@ -1349,7 +1353,8 @@ function update(dt, t, { dive, under, depth, view }) {
   // 見通し: 外洋に面した浅い礁の澄んだ水は、30m 以上先まで見える（深い所は 0.05 のまま）
   // 浅瀬（美しさ優先）は、さらに澄んで遠くまで見える
   const clear = 1 - Math.min(1, Math.max(0, (Math.max(depth, floorHere) - 40) / 40));
-  scene.fog.density = (0.05 - 0.028 * clear + 0.3 * siltLevel) * (1 + 2.2 * turb);
+  // ライトを点けた深海は、水そのものはとても澄んでいるので、ライトの届く範囲を少し遠くまで見通せる
+  scene.fog.density = ((lampOn ? 0.032 : 0.05) - 0.028 * clear + 0.3 * siltLevel) * (1 + 2.2 * turb);
   // 上からの光は、赤 → 緑 → 青の順に早く消える（浅瀬は赤・黄を多く残す: world.js の sunK）。雲の影の下では弱い（浅瀬は弱め方を控えめに）
   const bk = T.beautyK(ld), sk = T.sunK(ld);
   const cs = window.__SEA && window.__SEA.cloudShadeJS ? window.__SEA.cloudShadeJS(px / 1000, pz / 1000, t) : 1;
@@ -1367,12 +1372,12 @@ function update(dt, t, { dive, under, depth, view }) {
   // まわりの水から届く散乱光（あらゆる向きから来るので、影の側も青く見える）。これも赤から消える
   ambient.color.setRGB(0.10 + 0.9 * Math.exp(-sk[0] * ld), 0.165 + 0.9 * Math.exp(-sk[1] * ld), 0.21 + 0.9 * Math.exp(-sk[2] * ld));
   ambient.intensity = (0.35 + 0.6 * Math.exp(-ld / 60)) * (ld > 150 && !lampOn ? 0.12 : 1) * (1 - 0.2 * bk);   // ライトを消すと深海は真っ暗
-  // ライトはカメラと一緒に向きを変え、少し内向きに、前方 12m あたりで重なるように向ける
+  // ライトはカメラと一緒に向きを変え、少し内向きに、前方 16m あたりで重なるように向ける
   fill.intensity = lampOn ? 0.25 : 0;
   lamps.forEach((l, i) => {
-    l.intensity = lampOn ? 1.0 : 0;
+    l.intensity = lampOn ? 2.0 : 0;
     l.position.copy(LAMP_AT[i]).applyQuaternion(camera.quaternion);
-    l.target.position.copy(fwd).multiplyScalar(12);
+    l.target.position.copy(fwd).multiplyScalar(16);
     const b = beams[i]; b.visible = lampOn; b.position.copy(l.position); b.lookAt(l.target.position);
   });
   beamMat.uniforms.uI.value = 0.045 + 0.1 * siltLevel;               // 泥で濁ると、光の筋がはっきり見える

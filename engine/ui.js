@@ -149,7 +149,7 @@ function applyQuality() {
 }
 // 自動調整: 2 秒ごとに、1 フレームの間隔の中央値を見る。目標（約 55fps）より遅ければ細かさを 15% 下げ、
 // 十分に速ければ 10% 戻す。画面を切り替えた直後や、タブが裏にあるあいだは数えない
-const frameDts = []; let autoNext = 0;
+const frameDts = []; let autoNext = 0, autoChanged = -1e9;
 function autoRes(dt, now) {
   if (dt <= 0 || dt > 0.25) return;
   frameDts.push(dt);
@@ -159,8 +159,8 @@ function autoRes(dt, now) {
   frameDts.sort((a, b) => a - b); const med = frameDts[frameDts.length >> 1]; frameDts.length = 0;
   const before = autoScale;
   if (med > 1 / 50) autoScale = Math.max(0.5, autoScale * 0.85);
-  else if (med < 1 / 58 && autoScale < 1) autoScale = Math.min(1, autoScale * 1.1);
-  if (autoScale !== before) setPR();
+  else if (med < 1 / 58 && autoScale < 1 && now - autoChanged > 10) autoScale = Math.min(1, autoScale * 1.1);   // 戻すのは、変えてから 10 秒たってから（上げ下げをくり返して、画面がちらつかないように）
+  if (autoScale !== before) { autoChanged = now; setPR(); }
 }
 $('qual').onclick = () => {
   S.quality = { high: 'mid', mid: 'low', low: 'high' }[S.quality] || 'high';

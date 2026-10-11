@@ -580,7 +580,7 @@ const terrainMat = new THREE.ShaderMaterial({
         sun *= mix(1.0, cloudShade(vW.xz, uTime), 1.0 - 0.65 * bk);       // 流れる雲の影は、海の中にも落ちる（浅瀬は明るさを保つため弱める）
         // 潜水艇のライト: 前方の円すいの中だけ、数十 m まで届く（遠くの壁は照らさない）
         float cone = smoothstep(0.78, 0.93, dot(-toC / dist, uCamDir));
-        float lamp = pow(max(dot(N, toC / dist), 0.0), 0.7) * pow(1.0 - smoothstep(0.0, uLampR, dist), 2.0) * cone * 1.6;
+        float lamp = pow(max(dot(N, toC / dist), 0.0), 0.7) * pow(1.0 - smoothstep(0.0, uLampR, dist), 1.6) * cone * 2.1;
         // ライトの光も、行って戻る間に赤から吸われる（近景の生き物と同じ割合）
         col = sed * (sun + lamp * exp(-vec3(0.06, 0.02, 0.012) * dist * 2000.0));
         float vy = normalize(vW - uCam).y, up = vy > 0.0 ? 1.0 + 1.3 * pow(vy, 1.5) : mix(1.0, 0.3, smoothstep(0.0, 0.9, -vy));

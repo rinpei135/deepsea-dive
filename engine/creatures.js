@@ -212,7 +212,8 @@ const beamMat = new THREE.ShaderMaterial({
     }`,
   transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
 });
-const beams = LAMP_AT.map(() => { const m = new THREE.Mesh(beamGeo, beamMat); m.frustumCulled = false; m.visible = false; scene.add(m); return m; });
+// 半透明のもの（泥・マリンスノー・光の筋）は、描く順番を決めておく（距離で並べ替えると、向きを変えたときに順番が入れ替わって、画面全体の明るさがちかちかする）
+const beams = LAMP_AT.map(() => { const m = new THREE.Mesh(beamGeo, beamMat); m.frustumCulled = false; m.visible = false; m.renderOrder = 4; scene.add(m); return m; });
 // 底層流: 深海の底近くの水は、1 秒に数 cm でゆっくり流れている。マリンスノーと泥はこれに流される
 const current = new THREE.Vector3(), drift = new THREE.Vector2();
 
@@ -1151,7 +1152,7 @@ function litPoints(n, { color, snow = false, additive = true }) {
 const SNOW_N = 2200, marineSnow = litPoints(SNOW_N, { color: 0xe8f0f2, snow: true });
 { const p = marineSnow.geometry.attributes.position; for (let i = 0; i < SNOW_N * 3; i++) p.array[i] = Math.random() * 24; }
 // 舞い上がった泥: 海底すれすれを進んだり着底したりすると、足元から広がって、ゆっくり沈む
-const SILT_N = 600, silt = litPoints(SILT_N, { color: 0x9a8c78, additive: false });
+const SILT_N = 600, silt = litPoints(SILT_N, { color: 0x9a8c78, additive: false }); silt.renderOrder = 2; marineSnow.renderOrder = 3;
 const sP = new Float32Array(SILT_N * 3), sV = new Float32Array(SILT_N * 3), sAge = new Float32Array(SILT_N).fill(1e9), sLife = new Float32Array(SILT_N), sS0 = new Float32Array(SILT_N);
 let siltNext = 0, siltAcc = 0, siltLevel = 0, touched = false;
 function emitSilt(x, y, z, n, spread, power) {                        // x, z: 世界の m、y: 上が正（= -水深）

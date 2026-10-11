@@ -1,11 +1,11 @@
 // 外洋の海面近くの生き物と、ダイブポイントの見どころの体。
-//   ハシナガイルカの群れ（海面でジャンプして回る）・トビウオ（海面から飛び出して滑空する）・キハダの群れ・小魚の群れ（ベイトボール）とそれを襲うキハダ・流木につくシイラ、
+//   ハシナガイルカの群れ（海面でジャンプして回る）・トビウオ（海面から飛び出して滑空する）・キハダの群れ・小魚の群れ（ベイトボール）とそれを襲うキハダ・
+//   流木につくシイラ・ブリモドキ・ツムブリ・クロトガリザメ、海面に浮かぶカツオノカンムリ、
 //   沈船（東海丸）の体、タイマイ（アオウミガメの体の色を変える）。
 // 潜っているときは近景の世界（creatures.js）に描き、海面にいるときは、海面より上に出た体だけを別に描く。
-// 公開前（creatures.js の PREVIEW のときだけ表示）
 (() => {
 const L = window.__LIFE, A = L && L.reefApi, R = window.__REEF, T = window.__TRENCH, S = window.__DIVE, SEA = window.__SEA;
-if (!A || !A.PREVIEW || !R || !R.kit) return;
+if (!A || !R || !R.kit) return;
 const K = R.kit, { scene, REEF, floorAt } = A;
 const h = (a, b, k) => T.hashJS(a, b, k);
 const $V = new THREE.Vector3(), $Q = new THREE.Quaternion(), $Q2 = new THREE.Quaternion(), $M = new THREE.Matrix4(), $S = new THREE.Vector3(), $C = new THREE.Color();
@@ -333,6 +333,30 @@ function baitFrame(dt, t, px, pz, camD, floorHere, fwx, fwz) {
   done(B.far, nf); done(B.near, nn);
 }
 
+// ---------- 流木に集まる仲間・海面に浮かぶ生き物 ----------
+// ブリモドキ: 青みのある銀色に、5〜6 本の濃い横帯。尾びれの先が白い。流木のすぐ下に群れて、流木と一緒に漂う
+const pilotGeo = () => K.fishGeo({ hgt: 0.27, wid: 0.13, mx: 0.5, snout: 0.9, top: 0.12, ped: 0.08, tail: { len: 0.28, fork: 0.85, lobe: 0.55 }, dorsal: [0.3, 0.55, 0.14], anal: [0.28, 0.48, 0.12], eye: [0.85, 0.85, 0.75],
+  pat: (u, v) => (u > 0.12 && u < 0.85 && v > -0.75 && Math.sin((u - 0.12) / 0.73 * Math.PI * 5.5) > 0.35) ? [0.12, 0.16, 0.24] : K.mixc([0.82, 0.86, 0.9], [0.35, 0.48, 0.62], Math.max(0, v + 0.2)),
+  fin: (p, s) => p === 'tail' && s > 0.85 ? [0.92, 0.94, 0.95] : [0.2, 0.25, 0.32] }, 0);
+// ツムブリ: すらりとした紡錘形。背は濃い青緑、2 本の水色の線の間に黄色い帯、腹は白い。尾びれは黄色く、深く切れ込む
+const runnerGeo = () => K.fishGeo({ hgt: 0.17, wid: 0.11, mx: 0.45, snout: 1.4, top: 0.04, ped: 0.06, tail: { len: 0.22, fork: 0.9, lobe: 0.5 }, dorsal: [0.3, 0.68, 0.1], anal: [0.28, 0.45, 0.08], finlets: 1, eye: [0.85, 0.8, 0.6],
+  pat: (u, v) => v > 0.42 ? [0.12, 0.22, 0.3] : v > 0.35 ? [0.45, 0.75, 0.95] : v > 0.2 ? [0.78, 0.74, 0.32] : v > 0.13 ? [0.45, 0.75, 0.95] : K.mixc([0.9, 0.92, 0.93], [0.7, 0.75, 0.78], Math.max(0, v + 0.2)),
+  fin: (p, s) => p === 'tail' ? [0.86, 0.78, 0.35] : [0.4, 0.5, 0.5] }, 0);
+// カツオノカンムリ: 青い楕円の浮き（長さ 6cm ほど。同心円の模様）に、透明な三角の帆が斜めに立つ。浮きの縁には短い青い触手
+const velFloatGeo = () => K.paint(new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2).scale(1, 1, 0.62), (x, y, z) => { const r = Math.hypot(x, z / 0.62); return r > 0.86 ? [0.2, 0.42, 0.92] : Math.sin(r * 24) > 0.3 ? [0.55, 0.75, 1.0] : [0.12, 0.32, 0.85]; });
+const velSailGeo = () => K.paint(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.75, 0, -0.35), new THREE.Vector3(0.75, 0, 0.35), new THREE.Vector3(0.05, 0.95, 0.02)]).setIndex([0, 1, 2]), () => [0.88, 0.92, 0.96]);
+const pilot = { mesh: mesh(pilotGeo(), { roughness: 0.35, metalness: 0.15 }, 1, [], 140, false) };
+const runner = { mesh: mesh(runnerGeo(), { roughness: 0.3, metalness: 0.2 }, 1, [], 90, false) };
+const vel = { float: mesh((() => { const g = velFloatGeo(); g.computeVertexNormals(); return g; })(), { roughness: 0.3 }, 0, [], 360),
+  sail: mesh((() => { const g = velSailGeo(); g.computeVertexNormals(); return g; })(), { roughness: 0.2, transparent: true, opacity: 0.5, depthWrite: false }, 0, [], 360) };
+// クロトガリザメ: 流木の半分ほどに 1〜2 匹。体は species2.js（少しだけ作って使い回す）
+const sharks = { bodies: [], max: 4 };
+function sharkBody(i) {
+  if (sharks.bodies[i]) return sharks.bodies[i];
+  if (!window.SPECIES || !window.SPECIES.silky) return null;
+  const b = window.SPECIES.silky(2.2); A.withCaustics(b.group); scene.add(b.group); b.group.visible = false;
+  return (sharks.bodies[i] = b);
+}
 // ---------- 流木とシイラ ----------
 // 外洋（水深 80m より深い所）には、ところどころ流木や流れ藻が浮かび、その下にシイラが集まる。場所は 500m 四方の区画ごとの乱数で決まる
 const FLOT = 500;
@@ -350,7 +374,7 @@ const mahiGeo = () => K.fishGeo({ hgt: 0.3, wid: 0.12, mx: 0.8, snout: 0.35, top
 const mahiGeo2 = () => BAKE('mahi') || mahiGeo();
 const mahi = { mesh: mesh(mahiGeo2(), { roughness: 0.3, metalness: 0.1 }, 1, [], 30, false) };
 function flotFrame(dt, t, px, pz, camD, show) {
-  let nl = 0, nm = 0;
+  let nl = 0, nm = 0, np = 0, nr = 0, ns = 0;
   const flots = [];
   if (show) {
     const c0x = Math.round(px / FLOT), c0z = Math.round(pz / FLOT);
@@ -372,11 +396,58 @@ function flotFrame(dt, t, px, pz, camD, show) {
       put(mahi.mesh, nm++, x - px, camD - d, z - pz, orient(-Math.sin(a) * Math.sign(sp), 0, Math.cos(a) * Math.sign(sp)), 0.9 + 0.3 * h(k, f.cx, 528));
       f.mahi = f.mahi || []; f.mahi.push({ x, z, d });
     }
+    // ブリモドキ: 流木のすぐ下に群れて、みな流木と同じ向きで漂う（ときどき少しずつ位置を変える）
+    const hx = Math.cos(rot), hz = -Math.sin(rot);
+    for (let k = 0, n = 8 + Math.floor(h(f.cx, f.cz, 530) * 9); k < n && np < 140; k++) {
+      const ox = (h(k, f.cx, 531) - 0.5) * 3.2 + 0.25 * Math.sin(t * 0.35 + k), oz = (h(k, f.cz, 532) - 0.5) * 1.6 + 0.2 * Math.sin(t * 0.3 + k * 2), d = 0.5 + h(k, f.cx + 3, 533) * 1.4 + 0.1 * Math.sin(t * 0.5 + k);
+      const x = f.x + hx * ox - hz * oz, z = f.z + hz * ox + hx * oz;
+      put(pilot.mesh, np++, x - px, camD - d, z - pz, orient(hx + 0.08 * Math.sin(t * 0.4 + k), 0, hz + 0.08 * Math.cos(t * 0.37 + k)), 0.28 + 0.06 * h(k, f.cz, 534));
+      if (k === 0) f.pilot = { x, z, d };
+    }
+    // ツムブリ: 流木の 7 割に、3〜8 匹の群れ。流木のまわりを大きく速く回る
+    if (h(f.cx, f.cz, 535) < 0.7) for (let k = 0, n = 3 + Math.floor(h(f.cx, f.cz, 536) * 6); k < n && nr < 90; k++) {
+      const r = 5.5 + 2.5 * h(k, f.cx, 537), dir = h(f.cx, f.cz, 538) < 0.5 ? 1 : -1, a = t * 2.4 / r * dir + k * 0.42, d = 2 + 3 * h(k, f.cz, 539) + 0.5 * Math.sin(t * 0.6 + k);
+      const x = f.x + Math.cos(a) * r, z = f.z + Math.sin(a) * r;
+      put(runner.mesh, nr++, x - px, camD - d, z - pz, orient(-Math.sin(a) * dir, 0.05 * Math.cos(t * 0.6 + k), Math.cos(a) * dir), 0.75 + 0.2 * h(k, f.cx, 541));
+      if (k === 0) f.runner = { x, z, d };
+    }
+    // クロトガリザメ: 流木の半分ほどに 1〜2 匹。少し離れて、ゆっくり大きく回る（近くの流木だけ体を出す）
+    if (h(f.cx, f.cz, 542) < 0.5 && Math.hypot(f.x - px, f.z - pz) < 80) for (let k = 0, n = 1 + (h(f.cx, f.cz, 543) < 0.4 ? 1 : 0); k < n && ns < sharks.max; k++) {
+      const b = sharkBody(ns); if (!b) break;
+      const r = 10 + 4 * h(k, f.cz, 544), dir = k ? -1 : 1, a = t * 1.1 / r * dir + k * 2.5 + h(f.cx, f.cz, 545) * 6.3, d = 4 + 5 * h(k, f.cx, 546) + 1.2 * Math.sin(t * 0.2 + k);
+      const x = f.x + Math.cos(a) * r, z = f.z + Math.sin(a) * r;
+      b.group.position.set(x - px, camD - d, z - pz); b.group.rotation.set(0, Math.atan2(-Math.sin(a) * dir, Math.cos(a) * dir), 0, 'YXZ'); b.group.visible = true; b.animate(t + k * 3, 1);
+      (f.sharks = f.sharks || []).push({ x, z, d }); ns++;
+    }
   }
-  done(logs.mesh, nl); done(mahi.mesh, nm);
+  done(logs.mesh, nl); done(mahi.mesh, nm); done(pilot.mesh, np); done(runner.mesh, nr);
+  for (let i = ns; i < sharks.bodies.length; i++) sharks.bodies[i].group.visible = false;
   return flots;
 }
 
+// カツオノカンムリ: 外洋の 4 割ほどの区画（400m 四方）に、60〜160 個の密な群れ。風下（西南西）へゆっくり流され、波に合わせて上下する。
+// 海の中からは、海面に青い粒が並んで見える（潜水艇が海面から 25m より深いときは描かない）
+const VEL = 400;
+function velellaFrame(t, px, pz, camD) {
+  let n = 0; vel.near = null;                                          // いちばん近い 1 個（出会い・撮影に使う）
+  if (camD < 25) {
+    const c0x = Math.round(px / VEL), c0z = Math.round(pz / VEL), wx = -0.92, wz = 0.38;   // 西南西へ流される
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+      const cx = c0x + i, cz = c0z + j; if (h(cx, cz, 600) > 0.4) continue;
+      const bx = (cx + h(cx, cz, 601) - 0.5) * VEL + wx * ((t * 0.12) % VEL), bz = (cz + h(cx, cz, 602) - 0.5) * VEL + wz * ((t * 0.12) % VEL);
+      if (Math.hypot(bx - px, bz - pz) > 75 || floorAt(bx, bz) < 50) continue;
+      for (let k = 0, m = 60 + Math.floor(h(cx, cz, 603) * 100); k < m && n < 360; k++) {
+        const a = h(k, cx, 604) * 6.283, r = 9 * Math.sqrt(h(k, cz, 605)), x = bx + Math.cos(a) * r * 1.6, z = bz + Math.sin(a) * r;   // 風の向きに細長い群れ
+        if (Math.hypot(x - px, z - pz) > 50) continue;
+        const wh = SEA.waveHeight(x, z, t), yaw = h(k, cx + cz, 606) * 6.283, s = 0.06 + 0.03 * h(k, cx, 607);
+        $Q.setFromAxisAngle($V.set(0, 1, 0), yaw);
+        put(vel.float, n, x - px, camD + wh - 0.004, z - pz, $Q, s); put(vel.sail, n, x - px, camD + wh - 0.004, z - pz, $Q, s); n++;
+        if (n === 1 || Math.hypot(x - px, z - pz) < (vel.near ? vel.near.e : 99)) vel.near = { x, z, e: Math.hypot(x - px, z - pz) };
+      }
+    }
+  }
+  done(vel.float, n); done(vel.sail, n);
+}
 // ---------- 図鑑 ----------
 const D = (k, name, sci, from, to, where, note, geo, rot) => K.D(k, name, sci, from, to, where, note, K.thumbMesh(geo, 0xffffff, rot));
 const DEF = {
@@ -388,12 +459,18 @@ const DEF = {
     '長く伸びた黄色い背びれとしりびれが目印のマグロ。群れで外洋を速く泳ぎ回り、小魚やイカを食べる。', tunaGeo2),
   mahi: D('mahi', 'シイラ', 'Coryphaena hippurus', 0, 30, '外洋の海面近く（流木や流れ藻の下）',
     '金色と青緑にかがやく、額の切り立った魚。流木や流れ藻の下に集まる小魚を狙って、そのまわりを泳ぐ。グアムでも人気の釣りの魚。', mahiGeo2),
+  pilotfish: D('pilotfish', 'ブリモドキ', 'Naucrates ductor', 0, 50, '外洋の流木や流れ藻の下（大きなサメやエイのそばにも）',
+    '青みのある銀色の体に、5〜6 本の濃い横帯がある小さなアジの仲間。流木や、大きなサメ・エイ・ウミガメのそばについて、一緒に旅をする。', pilotGeo),
+  runner: D('runner', 'ツムブリ', 'Elagatis bipinnulata', 0, 50, '外洋の流木や流れ藻のまわり',
+    'すらりとした紡錘形の体に、水色の線と黄色い帯が走るアジの仲間。群れで流木のまわりを速く泳ぎ回り、小魚を追う。', runnerGeo),
+  velella: K.D('velella', 'カツオノカンムリ', 'Velella velella', 0, 1, '外洋の海面（風に吹かれて、群れで漂う）',
+    '青い楕円の浮きに、透明な三角の帆を立てたヒドロ虫の仲間。帆に風を受けて群れで海面を漂い、ときには浜に大量に打ち上げられる。', K.thumbMesh(() => K.merge([velFloatGeo(), velSailGeo()]), 0xffffff, 0.6, 0.7)),
   scad: D('scad', 'クサヤモロ', 'Decapterus macarellus', 0, 60, '外洋の表層（キハダなどに追われると、海面近くで球のように固まる）',
     'ムロアジの仲間で、体長 25cm ほどの細長い銀色の魚。大きな群れで外洋を泳ぎ、プランクトンを食べる。大きな魚に追われると、すき間なく集まって球のような群れ（ベイトボール）を作り、渦を巻いて身を守る。', () => K.fishGeo(scadO, 0))
 };
 Object.values(DEF).forEach(d => R.species.push(d));
 // 左の欄の「この深さで出会える生き物」: 外洋（水深 50m より深い海の上）の水深 40m より浅い所
-R.nearbyExtra.push((px, pz, depth, floorD) => floorD > 50 && depth < 40 ? [DEF.dolphin, DEF.yellowfin, DEF.scad, DEF.mahi, DEF.flyfish] : []);
+R.nearbyExtra.push((px, pz, depth, floorD) => floorD > 50 && depth < 40 ? [DEF.dolphin, DEF.yellowfin, DEF.scad, DEF.mahi, DEF.runner, DEF.pilotfish, DEF.velella, DEF.flyfish] : []);
 // 出会い: 30m 以内（シイラは 12m 以内）で、画面の正面近くに見えたとき。トビウオとイルカは、海面にいるときも
 const FWD = new THREE.Vector3();
 let meetT = 0;
@@ -409,6 +486,12 @@ function checkMeet(dt, px, pz, camD, flots) {
   if (ff.list.some(q => seen(q.x, 0, q.z, px, pz, camD, 30))) K.meetDef(DEF.flyfish, md);
   if (camD > 0.5 && tuna.sc) { const P = tuna.sc; if (seen(P.x, P.d, P.z, px, pz, camD, 30)) K.meetDef(DEF.yellowfin, md); }
   if (camD > 0.5) for (const f of flots) if ((f.mahi || []).some(q => seen(q.x, q.d, q.z, px, pz, camD, 12))) K.meetDef(DEF.mahi, md);
+  if (camD > 0.5) for (const f of flots) {
+    if (f.pilot && seen(f.pilot.x, f.pilot.d, f.pilot.z, px, pz, camD, 12)) K.meetDef(DEF.pilotfish, md);
+    if (f.runner && seen(f.runner.x, f.runner.d, f.runner.z, px, pz, camD, 20)) K.meetDef(DEF.runner, md);
+    const sk = f.sharks && L.species.find(d => d.kind === 'silky'); if (sk && f.sharks.some(q => seen(q.x, q.d, q.z, px, pz, camD, 30))) K.meetDef(sk, md);
+  }
+  if (vel.near && vel.near.e < 8 && seen(vel.near.x, 0, vel.near.z, px, pz, camD, 8)) K.meetDef(DEF.velella, md);
   if (camD > 0.5 && bait.ball) { const P = bait.ball; if (seen(P.x, P.d, P.z, px, pz, camD, 30)) K.meetDef(DEF.scad, md); if (P.hunters.some(h => seen(h.x, h.d, h.z, px, pz, camD, 25))) K.meetDef(DEF.yellowfin, md);
     const mk = P.marlin && L.species.find(d => d.kind === 'marlin'); if (mk && seen(P.marlin.x, P.marlin.d, P.marlin.z, px, pz, camD, 40)) K.meetDef(mk, md); }
 }
@@ -428,11 +511,14 @@ function subject(fwd, px, pz, depth) {
   if (bait.ball) { const P = bait.ball; check(DEF.scad, P.x, P.d, P.z, P.R * 1.5); P.hunters.forEach(h => check(DEF.yellowfin, h.x, h.d, h.z, 1.2));
     const mk = P.marlin && L.species.find(d => d.kind === 'marlin'); if (mk) check(mk, P.marlin.x, P.marlin.d, P.marlin.z, MARLIN_SIZE); }
   lastFlots.forEach(f => (f.mahi || []).forEach(q => check(DEF.mahi, q.x, q.d, q.z, 1)));
+  lastFlots.forEach(f => { if (f.pilot) check(DEF.pilotfish, f.pilot.x, f.pilot.d, f.pilot.z, 0.4); if (f.runner) check(DEF.runner, f.runner.x, f.runner.d, f.runner.z, 0.9);
+    const sk = f.sharks && L.species.find(d => d.kind === 'silky'); if (sk) f.sharks.forEach(q => check(sk, q.x, q.d, q.z, 2.2)); });
+  if (vel.near) check(DEF.velella, vel.near.x, 0, vel.near.z, 0.25);
   return best && { def: best, score };
 }
 
 // ---------- 毎フレーム（creatures.js の update から。深い海の上・海面の上でも呼ばれる） ----------
-const ALL = [dol.mesh, ff.mesh, tuna.mesh, logs.mesh, mahi.mesh, bait.far, bait.near, bait.hunt];
+const ALL = [dol.mesh, ff.mesh, tuna.mesh, logs.mesh, mahi.mesh, bait.far, bait.near, bait.hunt, pilot.mesh, runner.mesh, vel.float, vel.sail];
 function frame(dt, t, { dive, under, depth }) {
   dt = Math.min(dt, 0.1);
   K.TIME.value = t;
@@ -440,7 +526,7 @@ function frame(dt, t, { dive, under, depth }) {
   CAMD.value = camD;
   const show = dive && camD < 60 && camD > -60;
   airOn = show && !under;
-  if (!show) { ALL.forEach(m => done(m, 0)); if (bait.mBody) bait.mBody.group.visible = false; lastFlots = []; return; }
+  if (!show) { ALL.forEach(m => done(m, 0)); if (bait.mBody) bait.mBody.group.visible = false; sharks.bodies.forEach(b => { b.group.visible = false; }); vel.near = null; lastFlots = []; return; }
   const px = S.x * 1000, pz = S.z * 1000, floorHere = floorAt(px, pz);
   T.camera.getWorldDirection(FWD); const fl = Math.hypot(FWD.x, FWD.z) || 1;
   dolphinFrame(dt, t, px, pz, camD, floorHere, true);
@@ -448,13 +534,14 @@ function frame(dt, t, { dive, under, depth }) {
   tunaFrame(dt, t, px, pz, camD, floorHere, true);
   baitFrame(dt, t, px, pz, camD, floorHere, FWD.x / fl, FWD.z / fl);
   lastFlots = flotFrame(dt, t, px, pz, camD, true);
+  velellaFrame(t, px, pz, camD);
   checkMeet(dt, px, pz, camD, lastFlots);
 }
 REEF.pelagic = frame;
 REEF.warm = () => {                                                   // 潜航の始めに、海面より上を描く場面の材質も作っておく（creatures.js の warmAll から）
   AIR_MESHES.forEach(m => airScene.add(m)); T.renderer.compile(airScene, airCam); AIR_MESHES.forEach(m => scene.add(m));
 };
-window.__PELAGIC = { dol, ff, tuna, bait, DEF };                                // 確認用
+window.__PELAGIC = { dol, ff, tuna, bait, pilot, runner, sharks, vel, DEF, get flots() { return lastFlots; } };                                // 確認用
 REEF.renderAir = renderAir;
 // （サンゴ礁の生き物を隠す REEF.hide は、海面の上でも呼ばれるので、ここでは使わない。見せるかどうかは frame が決める）
 { const prevSub = REEF.subject; REEF.subject = (fwd, px, pz, depth) => {

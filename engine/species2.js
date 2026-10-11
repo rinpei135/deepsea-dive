@@ -294,6 +294,43 @@ function buildOceanicWhitetip(size) {
   });
 }
 
+// ---------- クロトガリザメ（Carcharhinus falciformis） ----------
+// 外洋でいちばん数の多いサメ（2〜2.5m）。細身で、吻はやや長く丸い。第 1 背びれは小さめで、胸びれの後ろの端より後ろから始まり、
+// 先は丸い。第 2 背びれは小さく、後ろの端が糸のように長く伸びる。胸びれは細長い鎌形。皮膚のうろこがとても細かく、絹のようになめらか
+// （英名 silky shark）。背は青銅色を帯びた濃い灰色、腹は白く、わき腹に淡い帯。ひれの先は白くならない（ヨゴレとの違い）。
+// 流木や流れ藻、マグロの群れのまわりに集まる
+function buildSilkyShark(size) {
+  const W = curve([0, 0.05, 0.16, 0.36, 0.62, 0.86, 1], [0.012, 0.038, 0.062, 0.068, 0.048, 0.022, 0.012]);
+  const H = curve([0, 0.05, 0.16, 0.36, 0.62, 0.86, 1], [0.011, 0.036, 0.068, 0.08, 0.055, 0.025, 0.014]);
+  const map = tex('silky', 1024, 1024, (x, Wd, Ht) => {
+    countershade(x, Wd, Ht, '#3f4448', '#727a80', '#eceeec', 0.07);
+    // わき腹の淡い帯（腹の白が、しりびれの上あたりで、わき腹へ食い込む）
+    for (const c of [0.03, 0.47]) { const gr = x.createLinearGradient(c * Wd - 40, 0, c * Wd + 40, 0); gr.addColorStop(0, 'rgba(210,214,212,0)'); gr.addColorStop(0.5, 'rgba(210,214,212,.35)'); gr.addColorStop(1, 'rgba(210,214,212,0)'); x.fillStyle = gr; x.fillRect(c * Wd - 40, 0.55 * Ht, 80, 0.25 * Ht); }
+    mottle(x, Wd, Ht, 80, 12, 36, 'rgba(90,80,60,.14)', 0.05, 0.95, [0.1, 0.4]);   // 青銅色のつや
+    gillLines(x, Wd, Ht, 0.17, 0.23, 5, 0.03, 0.06, 'rgba(40,42,44,.55)', 2);
+  });
+  const skinM = skin({ color: 0xffffff, map, rim: 0xa8b0b0, rimAmount: 0.14, clearcoat: 0.6, clearcoatRoughness: 0.25, roughness: 0.35, side: THREE.FrontSide, bump: 0.2, grain: 140 });
+  const finC = [0.27, 0.29, 0.31], finD = [0.18, 0.19, 0.2];
+  return swimmer(size, {
+    W, H, skinM, NS: 64, NR: 32, amp: s => 0.07 * Math.pow(s, 1.6), k: 4.2, freq: 0.7, tailBeat: 0.16, recoil: 0.005,
+    yc: s => 0.005 * (1 - ss(0, 0.08, s)),
+    shape: (s, th) => 1 - 0.14 * Math.max(0, -Math.sin(th)) * (1 - ss(0, 0.2, s)),
+    fins: [{ s0: 0.38, s1: 0.5, up: 1, n: 10, h: u => 0.105 * Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.1)), 0.6) * (1 - 0.3 * u), back: 0.55, c0: finC, c1: finD },
+      { s0: 0.74, s1: 0.8, up: 1, n: 6, h: u => 0.022 * Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.6)), 0.7) + 0.004, back: 0.9, c0: finC, c1: finD },   // 第 2 背びれ（後ろの端が長い）
+      { s0: 0.74, s1: 0.8, up: -1, n: 6, h: u => 0.024 * Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.6)), 0.7) + 0.004, back: 0.8, c0: finC, c1: finD },
+      { s0: 0.57, s1: 0.63, up: -1, n: 5, h: u => 0.032 * Math.sin(Math.PI * u), back: 0.5, c0: finC, c1: finD }],
+    tails: [{ rotZ: Math.PI / 2, c: () => finD, foil: { span: 0.27, le: a => 0.01 - 0.2 * Math.pow(a, 1.2), te: a => -0.045 - 0.17 * Math.pow(a, 1.2) - 0.01, th: a => 0.013 * (1 - a) + 0.002 } },
+      { rotZ: -Math.PI / 2, c: () => finD, foil: { span: 0.12, le: a => -0.075 * Math.pow(a, 1.2), te: a => -0.04 - 0.045 * Math.pow(a, 1.2) - 0.01, th: a => 0.011 * (1 - a) + 0.002 } }],
+    pecs: [{ s: 0.23, th: -0.62, rot: [0.15, -0.6, -0.3], c: (a, y) => y < 0 ? finD : finC, foil: { span: 0.27, le: a => -0.1 * a * a, te: a => -0.1 * a * a - 0.06 * (1 - 0.7 * a) - 0.01, th: a => 0.011 * (1 - a) + 0.002 } }],   // 細長い鎌形
+    extra: ctx => {
+      const lineM = new THREE.MeshBasicMaterial({ color: 0x141618 });
+      ctx.mouth = addTube(ctx, 12, 4, lineM, (u, out) => { ctx.surf(0.07 - 0.03 * Math.cos((u - 0.5) * Math.PI), -Math.PI / 2 + (u - 0.5) * 1.5, out); }, () => 0.0028);
+      ctx.eyes = addEyes(ctx, 0.07, 0.02, 0.0095, 0x3e4448);
+    },
+    onAnim: (t, ph, ctx) => { ctx.mouth(t, ph); ctx.eyes(); }
+  });
+}
+
 // ---------- マンボウ（Mola mola） ----------
 // 左右に平たい円盤のような体（体長 1.5〜3m）。尾びれはなく、体の後ろは「舵びれ」で、縁は骨の小さなこぶが並んで波打つ。
 // 背びれとしりびれは高く先がとがり、左右にそろって打ち振って泳ぐ。口は小さく、くちばし状の歯。胸びれの前に、丸い小さなえらあな。
@@ -1180,7 +1217,7 @@ function bakeSpecies(name) {
 window.SPECIES_BAKE = bakeSpecies;
 
 window.SPECIES = Object.assign(window.SPECIES || {}, {
-  marlin: buildMarlin, whaleshark: buildWhaleShark, oceanicwhitetip: buildOceanicWhitetip, mola: buildMola, skipjack: buildSkipjackSchool,
+  marlin: buildMarlin, whaleshark: buildWhaleShark, oceanicwhitetip: buildOceanicWhitetip, silky: buildSilkyShark, mola: buildMola, skipjack: buildSkipjackSchool,
   humpback: buildHumpback, manowar: buildManOWar, moonjelly: buildMoonJelly, combjelly: buildCombJelly, salp: buildSalpChain,
   pyrosome: buildPyrosome, barreleye: buildBarreleye, oarfish: buildOarfish, siphonophore: buildSiphonophore, frilledshark: buildFrilledShark, giantascidian: buildGiantAscidian,
   reefWhitetip: buildReefWhitetip, napoleon: buildNapoleon, eagleRay: buildEagleRay, reefManta: buildManta,
